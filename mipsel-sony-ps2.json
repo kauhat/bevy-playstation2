@@ -4,9 +4,10 @@
   "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
   "executables": true,
   "features": "+mips3,+soft-float",
-  "linker": "mips64-linux-gnu-gcc",
+  "linker": "mipsel-unknown-linux-gnu-gcc",
   "linker-flavor": "gcc",
   "llvm-target": "mipsel-sony-ps2",
+  "llvm-abiname": "o32",
   "max-atomic-width": 32,
   "os": "none",
   "panic-strategy": "abort",
@@ -16,9 +17,6 @@
   "target-endian": "little",
   "target-pointer-width": 32,
   "vendor": "sony",
-
-  "llvm-abiname": "o32",
-
   "post-link-args": {
     "gcc": [
       "-EL",

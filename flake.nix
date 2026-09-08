@@ -3,14 +3,22 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixgl.url = "github:nix-community/nixGL";
   };
 
   outputs = {
     self,
     nixpkgs,
+    nixgl,
   }: let
     system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
+    pkgs = import nixpkgs {
+      inherit system;
+      overlays = [nixgl.overlays.default];
+    };
+
+    # Direct reference to nixGLDefault package from the flake input
+    nixGLPkg = nixgl.packages.${system}.nixGLDefault;
 
     # 32-bit Little-Endian MIPS bare-metal cross-compilation toolchain
     mipsPkgs = pkgs.pkgsCross.mipsel-linux-gnu;
@@ -24,6 +32,7 @@
         pkgs.just
         pkgs.rustup
         pkgs.pcsx2
+        nixGLPkg
       ];
 
       shellHook = ''
@@ -34,21 +43,19 @@
 
     apps.${system}.default = {
       type = "app";
+      buildInputs = [
+        pkgs.just
+        pkgs.pcsx2
+        nixGLPkg
+      ];
       program = "${pkgs.writeShellScriptBin "run-ps2" ''
         set -e
-        echo "Building PS2 ELF..."
-        ${pkgs.just}/bin/just build
 
-        # Locate the output ELF binary
-        ELF_PATH="target/mipsel-sony-ps2/release/bevy-ps2"
+        # Ensure pcsx2 and nixGL are in the PATH
+        export PATH="${pkgs.pcsx2}/bin:${nixGLPkg}/bin:$PATH"
 
-        if [ ! -f "$ELF_PATH" ]; then
-          echo "Error: Could not find compiled ELF at $ELF_PATH"
-          exit 1
-        fi
-
-        echo "Launching $ELF_PATH in PCSX2..."
-        exec ${pkgs.pcsx2}/bin/pcsx2-qt -elf "$ELF_PATH"
+        # Execute using nixGL wrapper
+        exec nixGL ${pkgs.just}/bin/just run
       ''}/bin/run-ps2";
     };
   };
