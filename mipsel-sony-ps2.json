@@ -1,0 +1,31 @@
+{
+  "arch": "mips",
+  "cpu": "mips3",
+  "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
+  "executables": true,
+  "features": "+mips3,+soft-float",
+  "linker": "mips64-linux-gnu-gcc",
+  "linker-flavor": "gcc",
+  "llvm-target": "mipsel-sony-ps2",
+  "max-atomic-width": 32,
+  "os": "none",
+  "panic-strategy": "abort",
+  "position-independent-executables": false,
+  "relro-level": "full",
+  "target-c-int-width": 32,
+  "target-endian": "little",
+  "target-pointer-width": 32,
+  "vendor": "sony",
+
+  "llvm-abiname": "o32",
+
+  "post-link-args": {
+    "gcc": [
+      "-EL",
+      "-mabi=32",
+      "-nostartfiles",
+      "-nodefaultlibs"
+    ]
+  },
+  "relocation-model": "static"
+}
