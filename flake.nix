@@ -32,6 +32,7 @@
         pkgs.just
         pkgs.rustup
         pkgs.pcsx2
+        pkgs.cdrtools
         nixGLPkg
       ];
 

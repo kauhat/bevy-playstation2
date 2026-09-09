@@ -56,25 +56,79 @@ fn panic(_info: &PanicInfo) -> ! {
     unsafe {
         // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
         // R=0x00, G=0x00, B=0xFF
-        GS_BGCOLOR.write_volatile(0xFF00_0000);
+        GS_BGCOLOR.write_volatile(0x0000_00FF);
     }
 
     loop {}
 }
 
 // Memory-Mapped IO addresses for the Emotion Engine / GS
-const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
+const GS_PMODE: *mut u64    = 0x1200_0000 as *mut u64;
+const GS_SMODE2: *mut u64   = 0x1200_0020 as *mut u64;
+const GS_DISPFB2: *mut u64  = 0x1200_0090 as *mut u64;
+const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
+const GS_CSR: *mut u64      = 0x1200_1000 as *mut u64;
+const GS_BGCOLOR: *mut u64  = 0x1200_00E0 as *mut u64;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
+    init_gs();
     // println!("Hello, PS2 World!");
 
-    App::new()
-        .add_systems(Startup, hello_world_system)
-        .add_systems(Update, cycle_background_color_system)
-        .run();
+    let mut app = App::new();
+    app.add_systems(Startup, hello_world_system);
+    app.add_systems(Update, cycle_background_color_system)
+    ;
 
-    loop {}
+    // Run Startup systems
+    app.update();
+
+    loop {
+        // Wait for the CRT beam to reset (Lock to 60Hz NTSC)
+        wait_vsync();
+
+        // Run the Bevy Update schedule
+        app.update();
+    }
+}
+
+fn init_gs() {
+    unsafe {
+        // 1. Reset the Graphics Synthesizer (Write 1 to bit 9 of CSR)
+        GS_CSR.write_volatile(1 << 9);
+
+        // 2. Enable Read Circuit 1 & 2 in PMODE (Bits 0 and 1)
+        // This tells the GS to actually output a visual signal to the screen.
+        GS_PMODE.write_volatile(0x0000_0000_0000_0066);
+    }
+}
+
+fn init_video() {
+    unsafe {
+        // 1. Set Video Mode to NTSC (Interlaced)
+        GS_SMODE2.write_volatile(0x02);
+
+        // 2. Configure Display Buffer 2 (Format: PSMCT32, Width: 10, Base: 0)
+        GS_DISPFB2.write_volatile(0x0000_0000_0900_0000);
+
+        // 3. Configure Display Area 2 (Magic numbers for standard 640x448 NTSC)
+        GS_DISPLAY2.write_volatile(0x0009_4260_001A_09FF);
+
+        // 4. Enable Read Circuit 1 & 2 to push pixels to the screen
+        GS_PMODE.write_volatile(0x0000_0000_0000_0066);
+    }
+}
+
+fn wait_vsync() {
+    unsafe {
+        // Clear the VSync flag by writing 1 to bit 3
+        GS_CSR.write_volatile(1 << 3);
+
+        // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
+        while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
+            core::hint::spin_loop();
+        }
+    }
 }
 
 fn hello_world_system() {
