@@ -1,7 +1,6 @@
 // src/main.rs
 #[cfg_attr(target_arch = "mips", no_std)]
 #[cfg_attr(target_arch = "mips", no_main)]
-
 extern crate alloc;
 use bevy::prelude::*;
 
@@ -12,7 +11,7 @@ mod platform;
 pub extern "C" fn __start() -> ! {
     let mut app = App::new();
     app.add_plugins(platform::PlatformPlugin)
-       .add_systems(Update, shared_game_logic);
+        .add_systems(Update, shared_game_logic);
 
     loop {
         app.update();

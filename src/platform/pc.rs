@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::window::{WindowPlugin,Window};
+use bevy::window::{Window, WindowPlugin};
 
 pub struct PcPlatformPlugin;
 

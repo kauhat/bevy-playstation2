@@ -80,12 +80,12 @@ fn panic(_info: &PanicInfo) -> ! {
 }
 
 // Memory-Mapped IO addresses for the Emotion Engine / GS
-const GS_PMODE: *mut u64    = 0x1200_0000 as *mut u64;
-const GS_SMODE2: *mut u64   = 0x1200_0020 as *mut u64;
-const GS_DISPFB2: *mut u64  = 0x1200_0090 as *mut u64;
+const GS_PMODE: *mut u64 = 0x1200_0000 as *mut u64;
+const GS_SMODE2: *mut u64 = 0x1200_0020 as *mut u64;
+const GS_DISPFB2: *mut u64 = 0x1200_0090 as *mut u64;
 const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
-const GS_CSR: *mut u64      = 0x1200_1000 as *mut u64;
-const GS_BGCOLOR: *mut u64  = 0x1200_00E0 as *mut u64;
+const GS_CSR: *mut u64 = 0x1200_1000 as *mut u64;
+const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
@@ -94,8 +94,7 @@ pub extern "C" fn __start() -> ! {
 
     let mut app = App::new();
     app.add_systems(Startup, hello_world_system);
-    app.add_systems(Update, cycle_background_color_system)
-    ;
+    app.add_systems(Update, cycle_background_color_system);
 
     // Run Startup systems
     app.update();
