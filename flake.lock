@@ -68,10 +68,62 @@
         "type": "github"
       }
     },
+    "nixpkgs_3": {
+      "locked": {
+        "lastModified": 1744536153,
+        "narHash": "sha256-awS2zRgF4uTwrOKwwiJcByDzDOdo3Q1rPZbiHQg/N38=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "18dd725c29603f582cf1900e0d25f9f1063dbf11",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "ps2sdk-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789627353,
+        "narHash": "sha256-JNTot9y6gSmA0tKdPz4V8iXqimuJrm2rbVzRCIFR+fk=",
+        "owner": "ps2dev",
+        "repo": "ps2sdk",
+        "rev": "d317f8f0a2a413db38c5ef2b46ba927996983e0a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ps2dev",
+        "repo": "ps2sdk",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "nixgl": "nixgl",
-        "nixpkgs": "nixpkgs_2"
+        "nixpkgs": "nixpkgs_2",
+        "ps2sdk-src": "ps2sdk-src",
+        "rust-overlay": "rust-overlay"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_3"
+      },
+      "locked": {
+        "lastModified": 1789630063,
+        "narHash": "sha256-hulcXtNnQVDTPXiC8dQpTX3FPHxklIfX7Cx2kd2GDrM=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "a1d497a9415999853809ba22a7959b1c36dc6554",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "systems": {
