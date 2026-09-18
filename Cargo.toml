@@ -4,15 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.1", default-features = false }
-# panic-halt = "1.0.0"
-# serde = { version = "1.0", features = ["derive"] }
-# crossbeam-channel = "0.5.16"
-# serde_json = "1.0"
 
-[profile.dev]
-panic = "abort"
+# Shared dependencies...
+bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_app = { version = "0.18.1", default-features = false }
+bevy_math = { version = "0.18.1", default-features = false }
+bevy_transform = { version = "0.18.1", default-features = false }
 
-[profile.release]
-panic = "abort"
-lto = true
+# PC host...
+[target.'cfg(not(target_arch = "mips"))'.dependencies]
+bevy = { version = "0.18.1" } # Full default features for desktop iteration
+
+# PS2 host...
+[target.'cfg(target_arch = "mips")'.dependencies]
+bevy_asset = { version = "0.18.1", default-features = false }
+bevy_mesh = { version = "0.18.1", default-features = false }
+bevy_color = { version = "0.18.1", default-features = false }
