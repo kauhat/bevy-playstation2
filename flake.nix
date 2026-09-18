@@ -58,7 +58,7 @@
         };
 
         # autoPatchelfHook runs on Linux; macOS binaries are already dynamically linked for Mach-O
-        nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.autoPatchelfHook];
+        nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [pkgs.autoPatchelfHook];
 
         # Injected the missing multiprecision math libraries required by GCC
         buildInputs = [
