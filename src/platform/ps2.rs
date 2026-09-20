@@ -25,8 +25,8 @@ use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
 use core::ptr;
 
-// Reserve a static 1MB heap block inside the main RAM pool
-const HEAP_SIZE: usize = 1024 * 1024;
+// Reserve a static 16MB heap block inside the main RAM pool
+const HEAP_SIZE: usize = 1024 * 1024 * 16;
 
 #[repr(C, align(16))] // Align to 16 bytes for native PS2 EE alignment requirements
 struct PS2StaticArena {
