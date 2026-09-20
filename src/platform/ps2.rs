@@ -1,5 +1,10 @@
+extern crate alloc;
 use bevy::prelude::*;
-use core::prelude::*;
+use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
+use core::marker::Sync;
+use core::panic::PanicInfo;
+use core::ptr;
 
 pub struct Ps2PlatformPlugin;
 
@@ -19,12 +24,6 @@ fn init_ps2_hardware() {
     }
 }
 
-extern crate alloc;
-use bevy::prelude::*;
-use core::alloc::{GlobalAlloc, Layout};
-use core::cell::UnsafeCell;
-use core::panic::PanicInfo;
-use core::ptr;
 
 // Reserve a static 16MB heap block inside the main RAM pool
 const HEAP_SIZE: usize = 1024 * 1024 * 16;

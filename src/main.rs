@@ -1,7 +1,5 @@
-// src/main.rs
 #[cfg_attr(target_arch = "mips", no_std)]
 #[cfg_attr(target_arch = "mips", no_main)]
-extern crate alloc;
 use bevy::prelude::*;
 
 mod platform;
