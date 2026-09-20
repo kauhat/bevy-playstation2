@@ -1,5 +1,5 @@
 {
-  description = "PS2 Bare-Metal Development Environment";
+  description = "PS2 Bare-Metal Bevy Development Environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,7 +25,6 @@
         ];
       };
 
-      # Exact SHA256 hashes and asset names for ps2dev v2.0.0
       ps2devSrc =
         {
           "x86_64-linux" = {
@@ -57,10 +56,8 @@
           sha256 = ps2devSrc.hash;
         };
 
-        # autoPatchelfHook runs on Linux; macOS binaries are already dynamically linked for Mach-O
         nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [pkgs.autoPatchelfHook];
 
-        # Injected the missing multiprecision math libraries required by GCC
         buildInputs = [
           pkgs.zlib
           pkgs.stdenv.cc.cc.lib
@@ -86,14 +83,30 @@
         cargo = rustToolchain;
         rustc = rustToolchain;
       };
+
+      runtimeLibs = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+        udev
+        alsa-lib
+        vulkan-loader
+        libxkbcommon
+        wayland
+        wayland-protocols
+        libGL
+        xorg.libX11
+        xorg.libXcursor
+        xorg.libXi
+        xorg.libXrandr
+      ]);
     in {
-      inherit pkgs nixGLPkg rustToolchain rustPlatform ps2dev;
+      inherit pkgs nixGLPkg rustToolchain rustPlatform ps2dev runtimeLibs;
     });
   in {
     devShells = forAllSystems (system: let
       e = env.${system};
     in {
       default = e.pkgs.mkShell {
+        nativeBuildInputs = [e.pkgs.pkg-config];
+
         buildInputs = [
           e.ps2dev
           e.pkgs.gnumake
@@ -103,14 +116,18 @@
           e.pkgs.pcsx2
           e.pkgs.cdrtools
           e.nixGLPkg
-        ];
+        ] ++ e.runtimeLibs;
 
         shellHook = ''
-          export PS2SDK=${e.ps2dev}/ps2sdk
-          export GSKIT=${e.ps2dev}/gsKit
-          export PATH=$PATH:${e.ps2dev}/bin:${e.ps2dev}/ee/bin:${e.ps2dev}/iop/bin:${e.ps2dev}/dvp/bin:$PS2SDK/bin
+          export PS2DEV="${e.ps2dev}"
+          export PS2SDK="$PS2DEV/ps2sdk"
+          export GSKIT="$PS2DEV/gsKit"
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
           export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
           export PS2SDK_INCDIR="$PS2SDK/ee/include"
+
+          export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LD_LIBRARY_PATH="${e.pkgs.lib.makeLibraryPath e.runtimeLibs}:$LD_LIBRARY_PATH"
           echo "PS2 SDK Build Environment Loaded for ${system}!"
         '';
       };
@@ -125,7 +142,7 @@
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         nativeBuildInputs = [e.pkgs.pkg-config];
-        buildInputs = [e.pkgs.udev e.pkgs.alsa-lib e.pkgs.vulkan-loader e.pkgs.wayland];
+        buildInputs = e.runtimeLibs;
       };
 
       elf = e.rustPlatform.buildRustPackage {
@@ -133,16 +150,26 @@
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
-        nativeBuildInputs = [e.ps2dev];
+
+        cargoVendorDir = null;
+
+        nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
+        buildInputs = [e.pkgs.wayland e.pkgs.wayland-protocols e.pkgs.libxkbcommon];
+
         buildPhase = ''
-          export PS2SDK="${e.ps2dev}/ps2sdk"
+          export PS2DEV="${e.ps2dev}"
+          export PS2SDK="$PS2DEV/ps2sdk"
           export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
           export PS2SDK_INCDIR="$PS2SDK/ee/include"
 
-          export PATH=$PATH:${e.ps2dev}/bin:${e.ps2dev}/ee/bin:${e.ps2dev}/iop/bin:${e.ps2dev}/dvp/bin:$PS2SDK/bin
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
 
-          cargo build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release
+          # FIXED: Appended .dev to wayland and libxkbcommon
+          export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+          cargo build --release
         '';
+
         installPhase = ''
           mkdir -p $out/bin
           cp target/mipsel-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
@@ -176,6 +203,7 @@
     apps = forAllSystems (system: let
       e = env.${system};
     in {
+      # Build PS2 ISO and run in PCSX2.
       default = {
         type = "app";
         program = "${e.pkgs.writeShellScriptBin "run-iso" ''
@@ -185,12 +213,22 @@
         ''}/bin/run-iso";
       };
 
+      # Build PS2 ISO and run in PCSX2 (with debugger.)
       debugger = {
         type = "app";
         program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
           exec nixGL pcsx2-qt -debugger -disc "$ISO_PATH"
+        ''}/bin/run-iso-debug";
+      };
+
+      # Run PC executable.
+      pc = {
+        type = "app";
+        program = "${e.pkgs.writeShellScriptBin "run-pc" ''
+          set -e
+          exec nixGL ${self.packages.${system}.pc}
         ''}/bin/run-iso-debug";
       };
     });
