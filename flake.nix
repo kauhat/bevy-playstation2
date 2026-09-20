@@ -172,8 +172,9 @@
           # FIXED: Appended .dev to wayland and libxkbcommon
           export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-          cargo ps2-release
+          cargo build-ps2-release
         '';
+
 
         installPhase = ''
           mkdir -p $out/bin

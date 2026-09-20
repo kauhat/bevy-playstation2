@@ -1,29 +1,19 @@
-extern crate alloc;
 use bevy::prelude::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::marker::Sync;
 use core::panic::PanicInfo;
+use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 
 pub struct Ps2PlatformPlugin;
 
 impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, init_ps2_hardware)
+        // app.add_systems(Startup, init)
         //    .add_systems(Update, poll_ps2_controller)
-           ;
     }
 }
-
-fn init_ps2_hardware() {
-    unsafe {
-        // Minimal GS initialization for NTSC display output
-        core::ptr::write_volatile(0x1200_0020 as *mut u64, 0x02); // SMODE2
-        core::ptr::write_volatile(0x1200_0000 as *mut u64, 0x66); // PMODE
-    }
-}
-
 
 // Reserve a static 16MB heap block inside the main RAM pool
 const HEAP_SIZE: usize = 1024 * 1024 * 16;
@@ -87,24 +77,53 @@ const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
 const GS_CSR: *mut u64 = 0x1200_1000 as *mut u64;
 const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn __start() -> ! {
+// #[unsafe(no_mangle)]
+// pub extern "C" fn __start() -> ! {
+//     init_gs();
+//     // println!("Hello, PS2 World!");
+
+//     let mut app = App::new();
+//     app.add_systems(Startup, hello_world_system);
+//     app.add_systems(Update, cycle_background_color_system);
+
+//     // Run Startup systems
+//     app.update();
+
+//     loop {
+//         // Wait for the CRT beam to reset (Lock to 60Hz NTSC)
+//         wait_vsync();
+
+//         // Run the Bevy Update schedule
+//         app.update();
+//     }
+// }
+
+pub fn init() {
     init_gs();
-    // println!("Hello, PS2 World!");
+    init_video();
+}
 
-    let mut app = App::new();
-    app.add_systems(Startup, hello_world_system);
-    app.add_systems(Update, cycle_background_color_system);
+pub fn wait_vsync() {
+    unsafe {
+        // Clear the VSync flag by writing 1 to bit 3
+        GS_CSR.write_volatile(1 << 3);
 
-    // Run Startup systems
-    app.update();
+        // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
+        while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
+            core::hint::spin_loop();
+        }
+    }
+}
 
-    loop {
-        // Wait for the CRT beam to reset (Lock to 60Hz NTSC)
-        wait_vsync();
+//
+//
+//
 
-        // Run the Bevy Update schedule
-        app.update();
+fn init_ps2_hardware() {
+    unsafe {
+        // Minimal GS initialization for NTSC display output
+        core::ptr::write_volatile(0x1200_0020 as *mut u64, 0x02); // SMODE2
+        core::ptr::write_volatile(0x1200_0000 as *mut u64, 0x66); // PMODE
     }
 }
 
@@ -132,18 +151,6 @@ fn init_video() {
 
         // 4. Enable Read Circuit 1 & 2 to push pixels to the screen
         GS_PMODE.write_volatile(0x0000_0000_0000_0066);
-    }
-}
-
-fn wait_vsync() {
-    unsafe {
-        // Clear the VSync flag by writing 1 to bit 3
-        GS_CSR.write_volatile(1 << 3);
-
-        // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
-        while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
-            core::hint::spin_loop();
-        }
     }
 }
 

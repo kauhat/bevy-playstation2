@@ -1,5 +1,9 @@
-#[cfg_attr(target_arch = "mips", no_std)]
-#[cfg_attr(target_arch = "mips", no_main)]
+#![cfg_attr(target_arch = "mips", no_std)]
+#![cfg_attr(target_arch = "mips", no_main)]
+
+#[cfg(target_arch = "mips")]
+extern crate alloc;
+
 use bevy::prelude::*;
 
 mod platform;
@@ -7,13 +11,23 @@ mod platform;
 #[cfg(target_arch = "mips")]
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
+    platform::ps2::init();
+
     let mut app = App::new();
+
     app.add_plugins(platform::PlatformPlugin)
         .add_systems(Update, shared_game_logic);
 
+    // let mut world = bevy_ecs::world::World::new();
+    // let mut schedule = bevy_ecs::schedule::Schedule::default();
+
+    // schedule.add_systems(shared_game_logic);
+    // schedule.add_systems(platform::cycle_background_color_system);
+
     loop {
+        platform::ps2::wait_vsync();
+
         app.update();
-        // Add VSync lock here for PS2
     }
 }
 
