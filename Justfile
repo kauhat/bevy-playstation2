@@ -45,4 +45,4 @@ run-iso: build-iso
     fi
     @echo "Launching {{ ISO_PATH }} in PCSX2..."
 
-    pcsx2-qt "{{ ISO_PATH }}";
+    pcsx2-qt -batch "{{ ISO_PATH }}";

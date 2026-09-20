@@ -1,6 +1,6 @@
 {
   "arch": "mips",
-  "cpu": "mips3",
+  "cpu": "r5900",
   "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
   "executables": true,
   "features": "+mips3,+soft-float",
@@ -8,22 +8,30 @@
   "linker-flavor": "gcc",
   "llvm-target": "mipsel-sony-ps2",
   "llvm-abiname": "o32",
+  "abi": "o32",
   "max-atomic-width": 32,
   "os": "none",
   "panic-strategy": "abort",
   "position-independent-executables": false,
-  "relro-level": "full",
+  "relocation-model": "static",
+  "relro-level": "off",
   "target-c-int-width": 32,
   "target-endian": "little",
   "target-pointer-width": 32,
   "vendor": "sony",
-  "post-link-args": {
+  "pre-link-args": {
     "gcc": [
       "-EL",
       "-mabi=32",
-      "-nostartfiles",
-      "-nodefaultlibs"
+      "-mips3",
+      "-Wl,-m,elf32lr5900"
     ]
   },
-  "relocation-model": "static"
+  "late-link-args": {
+    "gcc": [
+      "-nostartfiles",
+      "-nodefaultlibs",
+      "-lgcc"
+    ]
+  }
 }
