@@ -11,7 +11,10 @@ mod platform;
 #[cfg(target_arch = "mips")]
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
+    // let test = "SHITS".to_string();
+
     platform::ps2::init();
+    panic!("FUCK");
 
     let mut app = App::new();
 
@@ -25,7 +28,9 @@ pub extern "C" fn __start() -> ! {
     // schedule.add_systems(platform::cycle_background_color_system);
 
     loop {
-        platform::ps2::wait_vsync();
+        let test = "POOPS".to_string();
+
+        // platform::ps2::wait_vsync();
 
         app.update();
     }

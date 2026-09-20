@@ -1,5 +1,6 @@
 #[cfg(not(target_arch = "mips"))]
 mod pc;
+
 #[cfg(target_arch = "mips")]
 pub mod ps2;
 

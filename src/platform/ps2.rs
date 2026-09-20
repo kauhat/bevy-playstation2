@@ -6,6 +6,12 @@ use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 
+unsafe extern "C" {
+    pub fn init_scr();
+    pub fn scr_printf(format: *const u8, ...) -> i32;
+    pub fn SleepThread();
+}
+
 pub struct Ps2PlatformPlugin;
 
 impl Plugin for Ps2PlatformPlugin {
@@ -64,9 +70,14 @@ fn panic(_info: &PanicInfo) -> ! {
         // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
         // R=0x00, G=0x00, B=0xFF
         GS_BGCOLOR.write_volatile(0x0000_00FF);
+
+        // Execute MIPS SYNC instruction if available to force bus write
+        // core::arch::asm!("sync", options(nostack, preserves_flags));
     }
 
-    loop {}
+    loop {
+        core::hint::spin_loop();
+    }
 }
 
 // Memory-Mapped IO addresses for the Emotion Engine / GS
@@ -99,8 +110,10 @@ const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 // }
 
 pub fn init() {
-    init_gs();
-    init_video();
+    unsafe {
+        init_scr();
+        scr_printf(b"Hello from Rust on PlayStation 2!\n\0".as_ptr());
+    }
 }
 
 pub fn wait_vsync() {
