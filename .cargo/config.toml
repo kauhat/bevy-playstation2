@@ -1,0 +1,11 @@
+[alias]
+ps2-dev = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json"
+ps2-release = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release"
+
+[target.mipsel-sony-ps2]
+linker = "mips64r5900el-ps2-elf-gcc"
+rustflags = [
+  "-C", "link-arg=-Ttext=0x00100000",
+  "-C", "link-arg=-nostartfiles",
+  "-C", "relocation-model=static",
+]

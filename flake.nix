@@ -72,10 +72,17 @@
         '';
       };
 
-      nixGLPkg = nixgl.packages.${system}.nixGLDefault;
+      # Guard nixGL for Linux only
+      nixGLPkg =
+        if pkgs.stdenv.isLinux
+        then nixgl.packages.${system}.nixGLDefault
+        else null;
+      nixGLCmd =
+        if pkgs.stdenv.isLinux
+        then "${nixGLPkg}/bin/nixGL "
+        else "";
 
       rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
-        targets = ["x86_64-unknown-linux-gnu"];
         extensions = ["rust-src"];
       };
 
@@ -92,13 +99,13 @@
         wayland
         wayland-protocols
         libGL
-        xorg.libX11
-        xorg.libXcursor
-        xorg.libXi
-        xorg.libXrandr
+        libX11
+        libXcursor
+        libXi
+        libXrandr
       ]);
     in {
-      inherit pkgs nixGLPkg rustToolchain rustPlatform ps2dev runtimeLibs;
+      inherit pkgs nixGLPkg nixGLCmd rustToolchain rustPlatform ps2dev runtimeLibs;
     });
   in {
     devShells = forAllSystems (system: let
@@ -107,16 +114,18 @@
       default = e.pkgs.mkShell {
         nativeBuildInputs = [e.pkgs.pkg-config];
 
-        buildInputs = [
-          e.ps2dev
-          e.pkgs.gnumake
-          e.pkgs.git
-          e.pkgs.just
-          e.rustToolchain
-          e.pkgs.pcsx2
-          e.pkgs.cdrtools
-          e.nixGLPkg
-        ] ++ e.runtimeLibs;
+        buildInputs =
+          [
+            e.ps2dev
+            e.pkgs.gnumake
+            e.pkgs.git
+            e.pkgs.just
+            e.rustToolchain
+            e.pkgs.pcsx2
+            e.pkgs.cdrtools
+            e.nixGLPkg
+          ]
+          ++ e.runtimeLibs;
 
         shellHook = ''
           export PS2DEV="${e.ps2dev}"
@@ -167,7 +176,7 @@
           # FIXED: Appended .dev to wayland and libxkbcommon
           export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-          cargo build --release
+          cargo ps2-release
         '';
 
         installPhase = ''
@@ -185,12 +194,13 @@
           ./.
         ];
         sourceRoot = ".";
-        nativeBuildInputs = [e.pkgs.cdrtools];
         dontUnpack = false;
+        nativeBuildInputs = [e.pkgs.cdrtools];
 
         buildPhase = ''
           ./scripts/pack-iso.sh "bin/BOOT.ELF" "bevy-ps2.iso"
         '';
+
         installPhase = ''
           mkdir -p $out
           cp bevy-ps2.iso $out/
@@ -209,7 +219,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec nixGL pcsx2-qt -disc "$ISO_PATH"
+          exec ${e.nixGLCmd} pcsx2-qt -disc "$ISO_PATH"
         ''}/bin/run-iso";
       };
 
@@ -219,7 +229,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec nixGL pcsx2-qt -debugger -disc "$ISO_PATH"
+          exec ${e.nixGLCmd} pcsx2-qt -debugger -disc "$ISO_PATH"
         ''}/bin/run-iso-debug";
       };
 
@@ -228,8 +238,8 @@
         type = "app";
         program = "${e.pkgs.writeShellScriptBin "run-pc" ''
           set -e
-          exec nixGL ${self.packages.${system}.pc}
-        ''}/bin/run-iso-debug";
+          exec ${e.nixGLCmd} ${self.packages.${system}.pc}
+        ''}/bin/run-pc";
       };
     });
   };
