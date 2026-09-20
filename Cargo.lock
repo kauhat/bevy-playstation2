@@ -345,10 +345,9 @@ name = "bevy-ps2"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy_color",
+ "bevy_app",
  "bevy_ecs",
  "bevy_math",
- "bevy_mesh",
  "bevy_transform",
 ]
 

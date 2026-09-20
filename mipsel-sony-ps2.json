@@ -4,7 +4,7 @@
   "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
   "executables": true,
   "features": "+mips3,+soft-float",
-  "linker": "mipsel-unknown-linux-gnu-gcc",
+  "linker": "mips64r5900el-ps2-elf-gcc",
   "linker-flavor": "gcc",
   "llvm-target": "mipsel-sony-ps2",
   "llvm-abiname": "o32",

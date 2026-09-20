@@ -1,15 +1,14 @@
 # Default target JSON specification file
 TARGET := "mipsel-sony-ps2.json"
 ELF_PATH := "target/mipsel-sony-ps2/release/bevy-ps2"
-ISO_DIR := "target/iso_root"
 ISO_PATH := "target/bevy-ps2.iso"
 
 # Default command
-default: build-ps2
+default: run-elf
 
 # Compile the release ELF binary for PS2
 build-ps2:
-    cargo ps2-dev
+    cargo build-ps2-release
 
 # Create a bootable PS2 ISO.
 build-iso: build-ps2
@@ -28,7 +27,7 @@ run-elf: build-ps2
 
     pcsx2-qt -batch -earlyconsolelog -elf "{{ ELF_PATH }}";
 
-debug-elf ELF_PATH='target/mipsel-sony-ps2/debug/bevy-ps2': build-ps2
+debug-elf: build-ps2
     @if [ ! -f "{{ ELF_PATH }}" ]; then \
         echo "Error: Could not find compiled ELF at {{ ELF_PATH }}"; \
         exit 1; \

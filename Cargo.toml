@@ -7,7 +7,7 @@ edition = "2024"
 
 # Shared dependencies...
 bevy_ecs = { version = "0.18.1", default-features = false }
-#bevy_app = { version = "0.18.1", default-features = false }
+bevy_app = { version = "0.18.1", default-features = false }
 bevy_math = { version = "0.18.1", default-features = false }
 bevy_transform = { version = "0.18.1", default-features = false }
 
@@ -17,6 +17,7 @@ bevy = { version = "0.18.1" } # Full default features for desktop iteration
 
 # PS2 host...
 [target.'cfg(target_arch = "mips")'.dependencies]
-#bevy_asset = { version = "0.18.1", default-features = false }
-bevy_mesh = { version = "0.18.1", default-features = false }
-bevy_color = { version = "0.18.1", default-features = false }
+bevy = { version = "0.18.1", default-features = false }
+# bevy_asset = { version = "0.18.1", default-features = false }
+# bevy_mesh = { version = "0.18.1", default-features = false }
+# bevy_color = { version = "0.18.1", default-features = false }

@@ -9,9 +9,15 @@ ISO_ROOT="target/iso_root"
 echo "Preparing ISO directory structure..."
 mkdir -p "$ISO_ROOT"
 
-# Copy the ELF and our static SYSTEM.CNF
+# Copy the compiled ELF
 cp "$ELF_IN" "$ISO_ROOT/BOOT.ELF"
-cp SYSTEM.CNF "$ISO_ROOT/SYSTEM.CNF"
+
+# Generate SYSTEM.CNF if not present in the workspace
+if [ -f "SYSTEM.CNF" ]; then
+    cp SYSTEM.CNF "$ISO_ROOT/SYSTEM.CNF"
+else
+    printf "BOOT2 = cdrom0:\\BOOT.ELF;1\r\nVER = 1.00\r\nVMODE = NTSC\r\n" > "$ISO_ROOT/SYSTEM.CNF"
+fi
 
 echo "Building ISO image..."
 mkisofs -l -iso-level 1 -volid "BEVY_PS2" -sysid "PLAYSTATION" -o "$ISO_OUT" "$ISO_ROOT"

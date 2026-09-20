@@ -159,11 +159,7 @@
         version = "0.1.0";
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
-
-        cargoVendorDir = null;
-
         nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
-        buildInputs = [e.pkgs.wayland e.pkgs.wayland-protocols e.pkgs.libxkbcommon];
 
         buildPhase = ''
           export PS2DEV="${e.ps2dev}"
@@ -189,18 +185,13 @@
       iso = e.pkgs.stdenv.mkDerivation {
         pname = "bevy-ps2-iso";
         version = "0.1.0";
-        srcs = [
-          self.packages.${system}.elf
-          ./.
-        ];
-        sourceRoot = ".";
-        dontUnpack = false;
+        dontUnpack = true;
+
         nativeBuildInputs = [e.pkgs.cdrtools];
 
         buildPhase = ''
-          ./scripts/pack-iso.sh "bin/BOOT.ELF" "bevy-ps2.iso"
+          bash ${./scripts/pack-iso.sh} "${self.packages.${system}.elf}/bin/BOOT.ELF" "bevy-ps2.iso"
         '';
-
         installPhase = ''
           mkdir -p $out
           cp bevy-ps2.iso $out/
@@ -219,7 +210,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.nixGLCmd} pcsx2-qt -disc "$ISO_PATH"
+          exec ${e.nixGLCmd} ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
         ''}/bin/run-iso";
       };
 
@@ -229,7 +220,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.nixGLCmd} pcsx2-qt -debugger -disc "$ISO_PATH"
+          exec ${e.nixGLCmd} ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
         ''}/bin/run-iso-debug";
       };
 
@@ -238,7 +229,7 @@
         type = "app";
         program = "${e.pkgs.writeShellScriptBin "run-pc" ''
           set -e
-          exec ${e.nixGLCmd} ${self.packages.${system}.pc}
+          exec ${e.nixGLCmd} ${self.packages.${system}.pc}/bin/bevy-ps2
         ''}/bin/run-pc";
       };
     });
