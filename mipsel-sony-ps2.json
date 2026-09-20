@@ -1,15 +1,14 @@
 {
-  "arch": "mips",
+  "arch": "mips64",
   "cpu": "r5900",
-  "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
   "executables": true,
+  "data-layout": "e-m:e-p:32:32-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128",
   "features": "+mips3,+soft-float",
   "linker": "mips64r5900el-ps2-elf-gcc",
   "linker-flavor": "gcc",
-  "llvm-target": "mipsel-sony-ps2",
-  "llvm-abiname": "o32",
-  "abi": "o32",
-  "max-atomic-width": 32,
+  "llvm-target": "mips64el-none-elf",
+  "llvm-abiname": "n32",
+  "max-atomic-width": 64,
   "os": "none",
   "panic-strategy": "abort",
   "position-independent-executables": false,
@@ -22,9 +21,9 @@
   "pre-link-args": {
     "gcc": [
       "-EL",
-      "-mabi=32",
+      "-mabi=n32",
       "-mips3",
-      "-Wl,-m,elf32lr5900"
+      "-Wl,-m,elf32lr5900n32"
     ]
   },
   "late-link-args": {

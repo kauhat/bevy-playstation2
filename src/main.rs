@@ -1,14 +1,14 @@
-#![cfg_attr(target_arch = "mips", no_std)]
-#![cfg_attr(target_arch = "mips", no_main)]
+#![cfg_attr(target_arch = "mips64", no_std)]
+#![cfg_attr(target_arch = "mips64", no_main)]
 
-#[cfg(target_arch = "mips")]
+#[cfg(target_arch = "mips64")]
 extern crate alloc;
 
 use bevy::prelude::*;
 
 mod platform;
 
-#[cfg(target_arch = "mips")]
+#[cfg(target_arch = "mips64")]
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
     // let test = "SHITS".to_string();
@@ -36,7 +36,14 @@ pub extern "C" fn __start() -> ! {
     }
 }
 
-#[cfg(not(target_arch = "mips"))]
+#[unsafe(no_mangle)]
+pub extern "C" fn _exit(_status: core::ffi::c_int) -> ! {
+    loop {
+        core::hint::spin_loop();
+    }
+}
+
+#[cfg(not(target_arch = "mips64"))]
 fn main() {
     App::new()
         .add_plugins(platform::PlatformPlugin)

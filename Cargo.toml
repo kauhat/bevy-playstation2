@@ -12,12 +12,12 @@ edition = "2024"
 #bevy_transform = { version = "0.18.1", default-features = false }
 
 # PC host...
-[target.'cfg(not(target_arch = "mips"))'.dependencies]
+[target.'cfg(not(target_arch = "mips64"))'.dependencies]
 bevy = { version = "0.18.1" } # Full default features for desktop iteration
 # bevy_transform = { version = "0.18.1" }
 
 # PS2 host...
-[target.'cfg(target_arch = "mips")'.dependencies]
+[target.'cfg(target_arch = "mips64")'.dependencies]
 bevy = { version = "0.18.1", default-features = false }
 #bevy_asset = { version = "0.18.1", default-features = false }
 #bevy_mesh = { version = "0.18.1", default-features = false }
