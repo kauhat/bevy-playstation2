@@ -19,6 +19,8 @@ fn main() {
         println!("cargo:rustc-link-arg=-lc");
         println!("cargo:rustc-link-arg=-lcglue");
         println!("cargo:rustc-link-arg=-lkernel");
+        println!("cargo:rustc-link-arg=-latomic");
+        // println!("cargo:rustc-link-arg=-lpthread");
         println!("cargo:rustc-link-arg=-ldebug");
         println!("cargo:rustc-link-arg=-Wl,--end-group");
     }

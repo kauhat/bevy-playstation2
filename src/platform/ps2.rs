@@ -5,6 +5,7 @@ use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
+use cstr_core::{CStr, CString};
 
 unsafe extern "C" {
     pub fn init_scr();
@@ -12,12 +13,31 @@ unsafe extern "C" {
     pub fn SleepThread();
 }
 
+/// Print a formatted string slice directly to the PS2 screen via EE debug output
+pub fn ps2_print(string: String) -> i32 {
+    if let Ok(c_str) = CString::new(string) {
+        unsafe {
+            scr_printf(b"%s\n\0".as_ptr(), c_str.as_ptr())
+        }
+    } else {
+        -1
+    }
+}
+
+/// A print macro similar to `println!` that renders text to the PS2 screen.
+// #[macro_export]
+// macro_rules! ps2_println {
+//     ($($arg:tt)*) => {$crate::ps2_print(format_args!($($arg)*));
+//     };
+// }
+
 pub struct Ps2PlatformPlugin;
 
 impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, init)
-        //    .add_systems(Update, poll_ps2_controller)
+           app.add_systems(Update, count_entities_system)
+           ;
     }
 }
 
@@ -65,8 +85,12 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
 };
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
+    ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
+
     unsafe {
+
         // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
         // R=0x00, G=0x00, B=0xFF
         GS_BGCOLOR.write_volatile(0x0000_00FF);
@@ -112,8 +136,11 @@ const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 pub fn init() {
     unsafe {
         init_scr();
-        scr_printf(b"Hello from Rust on PlayStation 2!\n\0".as_ptr());
+        // scr_printf(b"Init!\n\0".as_ptr());
     }
+
+
+    ps2_print("Init!".to_string());
 }
 
 pub fn wait_vsync() {
@@ -205,4 +232,36 @@ fn cycle_background_color_system(mut hue: Local<f32>) {
     unsafe {
         GS_BGCOLOR.write_volatile(color as u64);
     }
+}
+
+pub fn count_entities_system(entities: Query<Entity>) {
+    let total_entities = entities.iter().count();
+    ps2_print(format!("Total entities in world: {}", total_entities).to_string());
+}
+
+//
+//
+//
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pthread_mutex_lock(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pthread_mutex_unlock(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pthread_mutex_init(
+    _mutex: *mut core::ffi::c_void,
+    _attr: *const core::ffi::c_void,
+) -> core::ffi::c_int {
+    0
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pthread_mutex_destroy(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
+    0
 }
