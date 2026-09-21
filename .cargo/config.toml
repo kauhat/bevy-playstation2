@@ -1,6 +1,7 @@
 [alias]
 build-ps2-dev = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json"
 build-ps2-release = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release"
+run-ps2-release = "run -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release"
 
 [unstable]
 # build-std = ["core", "compiler_builtins"]
@@ -8,9 +9,12 @@ build-ps2-release = "build -Z build-std=core,alloc -Z build-std-features=compile
 
 [target.mipsel-sony-ps2]
 linker = "mips64r5900el-ps2-elf-gcc"
+
+runner = "cargo -Z script ./scripts/pcsx2-test-runner.rs"
+
 rustflags = [
-  "-C", "target-feature=+mips3,+soft-float",
-  "-C", "relocation-model=static",
+  # "-C", "target-feature=+mips3,+soft-float",
+  # "-C", "relocation-model=static",
   "-C", "link-arg=-Wl,--gc-sections",
 
   # Strip debug symbols

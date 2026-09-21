@@ -12,7 +12,7 @@ fn main() {
 
         // PS2SDK static libraries...
         println!("cargo:rustc-link-search=native={}/ee/lib", ps2sdk);
-       
+
         // PS2SDK linker script...
         println!("cargo:rustc-link-arg=-T{}/ee/startup/linkfile", ps2sdk);
     }

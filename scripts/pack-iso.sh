@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 set -e
 
-# Arguments or defaults
-ELF_IN=${1:-"target/mipsel-sony-ps2/release/bevy-ps2"}
+ELF_PATH=${1:-"target/mipsel-sony-ps2/release/bevy-ps2"}
 ISO_OUT=${2:-"target/bevy-ps2.iso"}
 ISO_ROOT="target/iso_root"
+
+if [ ! -f "$ELF_PATH" ]; then
+    echo "Error: Could not find compiled ELF at $ELF_PATH";
+    exit 1;
+fi
 
 echo "Preparing ISO directory structure..."
 mkdir -p "$ISO_ROOT"
 
 # Copy the compiled ELF
-cp "$ELF_IN" "$ISO_ROOT/BOOT.ELF"
+cp "$ELF_PATH" "$ISO_ROOT/BOOT.ELF"
 
 # Generate SYSTEM.CNF if not present in the workspace
 if [ -f "SYSTEM.CNF" ]; then

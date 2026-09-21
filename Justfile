@@ -10,6 +10,8 @@ default: run-elf
 build-ps2:
     cargo build-ps2-release
 
+    mips64r5900el-ps2-elf-readelf -h {{ ELF_PATH }}
+
 # Create a bootable PS2 ISO.
 build-iso: build-ps2
     @./scripts/pack-iso.sh "{{ ELF_PATH }}" "{{ ISO_PATH }}"
@@ -25,17 +27,9 @@ run-elf: build-ps2
         exit 1; \
     fi
 
+    @echo "Launching {{ ELF_PATH }} in PCSX2..."
+
     pcsx2-qt -batch -earlyconsolelog -elf "{{ ELF_PATH }}";
-
-debug-elf: build-ps2
-    @if [ ! -f "{{ ELF_PATH }}" ]; then \
-        echo "Error: Could not find compiled ELF at {{ ELF_PATH }}"; \
-        exit 1; \
-    fi
-
-    realpath {{ ELF_PATH }}
-
-    pcsx2-qt -batch -debugger -earlyconsolelog -elf "{{ ELF_PATH }}";
 
 # Run the ISO in PCSX2.
 run-iso: build-iso
@@ -43,6 +37,18 @@ run-iso: build-iso
         echo "Error: Could not find ISO at {{ ISO_PATH }}"; \
         exit 1; \
     fi
+
     @echo "Launching {{ ISO_PATH }} in PCSX2..."
 
     pcsx2-qt -batch "{{ ISO_PATH }}";
+
+# Build and execute with debugger.
+debug: build-ps2
+    @if [ ! -f "{{ ELF_PATH }}" ]; then \
+        echo "Error: Could not find compiled ELF at {{ ELF_PATH }}"; \
+        exit 1; \
+    fi
+
+    @echo "Debugging {{ ELF_PATH }} in PCSX2..."
+
+    pcsx2-qt -batch -debugger -earlyconsolelog -elf "{{ ELF_PATH }}";
