@@ -3,11 +3,14 @@ name = "bevy-ps2"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["crates/ps2sdk-sys"]
+
 [dependencies]
 cstr_core = "0.2.6"
 
 # Shared dependencies...
-# bevy_ecs = { version = "0.18.1", default-features = false }
+bevy_ecs = { version = "0.18.1", default-features = false }
 #bevy_app = { version = "0.18.1", default-features = false }
 # bevy_math = { version = "0.18.1", default-features = false }
 #bevy_transform = { version = "0.18.1", default-features = false }
@@ -19,6 +22,7 @@ bevy = { version = "0.18.1" } # Full default features for desktop iteration
 
 # PS2 host...
 [target.'cfg(target_arch = "mips64")'.dependencies]
+ps2sdk-sys = { path = "crates/ps2sdk-sys" }
 bevy = { version = "0.18.1", default-features = false }
 bevy_ecs = { version = "0.18.1", default-features = false }
 #bevy_asset = { version = "0.18.1", default-features = false }

@@ -6,19 +6,12 @@ use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use cstr_core::{CStr, CString};
-
-unsafe extern "C" {
-    pub fn init_scr();
-    pub fn scr_printf(format: *const u8, ...) -> i32;
-    pub fn SleepThread();
-}
+pub use ps2sdk_sys::*;
 
 /// Print a formatted string slice directly to the PS2 screen via EE debug output
 pub fn ps2_print(string: String) -> i32 {
     if let Ok(c_str) = CString::new(string) {
-        unsafe {
-            scr_printf(b"%s\n\0".as_ptr(), c_str.as_ptr())
-        }
+        unsafe { scr_printf(b"%s\n\0".as_ptr(), c_str.as_ptr()) }
     } else {
         -1
     }
@@ -36,8 +29,7 @@ pub struct Ps2PlatformPlugin;
 impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, init)
-           app.add_systems(Update, count_entities_system)
-           ;
+        app.add_systems(Update, count_entities_system);
     }
 }
 
@@ -90,7 +82,6 @@ fn panic(info: &PanicInfo) -> ! {
     ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
 
     unsafe {
-
         // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
         // R=0x00, G=0x00, B=0xFF
         GS_BGCOLOR.write_volatile(0x0000_00FF);
@@ -138,7 +129,6 @@ pub fn init() {
         init_scr();
         // scr_printf(b"Init!\n\0".as_ptr());
     }
-
 
     ps2_print("Init!".to_string());
 }
@@ -242,26 +232,3 @@ pub fn count_entities_system(entities: Query<Entity>) {
 //
 //
 //
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_mutex_lock(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
-    0
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_mutex_unlock(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
-    0
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_mutex_init(
-    _mutex: *mut core::ffi::c_void,
-    _attr: *const core::ffi::c_void,
-) -> core::ffi::c_int {
-    0
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_mutex_destroy(_mutex: *mut core::ffi::c_void) -> core::ffi::c_int {
-    0
-}

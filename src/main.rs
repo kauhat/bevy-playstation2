@@ -4,6 +4,10 @@
 #[cfg(target_arch = "mips64")]
 extern crate alloc;
 
+#[cfg(target_arch = "mips64")]
+#[macro_use]
+extern crate ps2sdk_sys;
+
 use bevy::prelude::*;
 
 mod platform;
@@ -12,8 +16,10 @@ mod platform;
 #[unsafe(no_mangle)]
 pub extern "C" fn __start() -> ! {
     platform::ps2::init();
-
+    
+    println!("This is a printf test");
     platform::ps2::ps2_print("Hello I'm a Playstation 2 Rust app".to_string());
+
 
     // panic!("starts");
     // let mut app = App::new();
@@ -52,7 +58,6 @@ fn main() {
         .run();
 }
 
-
 const FOUR_MB: usize = 4 * 1024 * 1024;
 
 #[derive(Component)]
@@ -74,8 +79,5 @@ impl Default for LargeDataBuffer {
 }
 
 fn shared_game_logic(mut commands: Commands) {
-    commands.spawn((
-        Name::new("LargeBufferEntity"),
-        LargeDataBuffer::default(),
-    ));
+    commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
 }
