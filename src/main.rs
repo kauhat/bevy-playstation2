@@ -14,22 +14,28 @@ mod platform;
 
 #[cfg(target_arch = "mips64")]
 #[unsafe(no_mangle)]
-pub extern "C" fn __start() -> ! {
+pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     platform::ps2::init();
     
     println!("This is a printf test");
     platform::ps2::ps2_print("Hello I'm a Playstation 2 Rust app".to_string());
 
 
+    println!("bum");
+    
+    loop {
+        println!("arse");
+    }
+    
     // panic!("starts");
-    // let mut app = App::new();
+    let mut app = App::new();
     platform::ps2::ps2_print("hmm".to_string());
 
-    // app.add_plugins(platform::PlatformPlugin)
-    //     .add_systems(Update, shared_game_logic);
+    app.add_plugins(platform::PlatformPlugin)
+        .add_systems(Update, shared_game_logic);
 
-    let mut world = bevy_ecs::world::World::new();
-    let mut schedule = bevy_ecs::schedule::Schedule::default();
+    // let mut world = bevy_ecs::world::World::new();
+    // let mut schedule = bevy_ecs::schedule::Schedule::default();
 
     // schedule.add_systems(shared_game_logic);
     // schedule.add_systems(platform::cycle_background_color_system);
@@ -37,18 +43,20 @@ pub extern "C" fn __start() -> ! {
     loop {
         // platform::ps2::wait_vsync();
 
-        // app.update();
+        app.update();
 
         panic!("did a loop");
     }
+
+    0
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _exit(_status: core::ffi::c_int) -> ! {
-    loop {
-        core::hint::spin_loop();
-    }
-}
+// #[unsafe(no_mangle)]
+// pub extern "C" fn _exit(_status: core::ffi::c_int) -> ! {
+//     loop {
+//         core::hint::spin_loop();
+//     }
+// }
 
 #[cfg(not(target_arch = "mips64"))]
 fn main() {
