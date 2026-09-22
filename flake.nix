@@ -163,7 +163,14 @@
       elf = e.craneLib.buildPackage {
         pname = "bevy-ps2-elf";
         version = "0.1.0";
-        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
+        src = e.pkgs.lib.cleanSourceWith {
+          src = e.craneLib.path ./.;
+
+          # Don't filter .json files
+          filter = path: type:
+            (e.pkgs.lib.hasSuffix ".json" path) ||
+            (e.craneLib.filterCargoSources path type);
+        };
 
         cargoExtraArgs = "-Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release";
 
