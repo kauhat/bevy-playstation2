@@ -3,14 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixgl.url = "github:nix-community/nixGL";
+    # nixgl.url = "github:nix-community/nixGL";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs = {
     self,
     nixpkgs,
-    nixgl,
     rust-overlay,
   }: let
     supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
@@ -20,7 +19,7 @@
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
-          nixgl.overlays.default
+          # nixgl.overlays.default
           rust-overlay.overlays.default
         ];
       };
@@ -73,14 +72,14 @@
       };
 
       # Guard nixGL for Linux only
-      nixGLPkg =
-        if pkgs.stdenv.isLinux
-        then nixgl.packages.${system}.nixGLDefault
-        else null;
-      nixGLCmd =
-        if pkgs.stdenv.isLinux
-        then "${nixGLPkg}/bin/nixGL "
-        else "";
+      # nixGLPkg =
+      #   if pkgs.stdenv.isLinux
+      #   then nixgl.packages.${system}.nixGLDefault
+      #   else null;
+      # nixGLCmd =
+      #   if pkgs.stdenv.isLinux
+      #   then "${nixGLPkg}/bin/nixGL "
+      #   else "";
 
       rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
         extensions = ["rust-src"];
@@ -105,7 +104,7 @@
         libXrandr
       ]);
     in {
-      inherit pkgs nixGLPkg nixGLCmd rustToolchain rustPlatform ps2dev runtimeLibs;
+      inherit pkgs rustToolchain rustPlatform ps2dev runtimeLibs;
     });
   in {
     devShells = forAllSystems (system: let
@@ -123,7 +122,7 @@
             e.rustToolchain
             e.pkgs.pcsx2
             e.pkgs.cdrtools
-            e.nixGLPkg
+            # e.nixGLPkg
           ]
           ++ e.runtimeLibs;
 
@@ -211,7 +210,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.nixGLCmd} ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
+          exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
         ''}/bin/run-iso";
       };
 
@@ -221,7 +220,7 @@
         program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
           set -e
           ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.nixGLCmd} ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
+          exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
         ''}/bin/run-iso-debug";
       };
 
@@ -230,7 +229,7 @@
         type = "app";
         program = "${e.pkgs.writeShellScriptBin "run-pc" ''
           set -e
-          exec ${e.nixGLCmd} ${self.packages.${system}.pc}/bin/bevy-ps2
+          exec ${self.packages.${system}.pc}/bin/bevy-ps2
         ''}/bin/run-pc";
       };
     });
