@@ -89,7 +89,7 @@
 
       craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-      runtimeLibs = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+      runtimeLibs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
         udev
         alsa-lib
         vulkan-loader
