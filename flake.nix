@@ -4,12 +4,14 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     # nixgl.url = "github:nix-community/nixGL";
+    crane.url = "github:ipetkov/crane";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs = {
     self,
     nixpkgs,
+    crane,
     rust-overlay,
   }: let
     supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
@@ -85,10 +87,7 @@
         extensions = ["rust-src"];
       };
 
-      rustPlatform = pkgs.makeRustPlatform {
-        cargo = rustToolchain;
-        rustc = rustToolchain;
-      };
+      craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
       runtimeLibs = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
         udev
@@ -104,9 +103,16 @@
         libXrandr
       ]);
     in {
-      inherit pkgs rustToolchain rustPlatform ps2dev runtimeLibs;
+      inherit pkgs rustToolchain craneLib ps2dev runtimeLibs;
     });
   in {
+    formatter = forAllSystems (
+      system: let
+        e = env.${system};
+      in
+        e.pkgs.alejandra
+    );
+
     devShells = forAllSystems (system: let
       e = env.${system};
     in {
@@ -122,6 +128,7 @@
             e.rustToolchain
             e.pkgs.pcsx2
             e.pkgs.cdrtools
+            e.pkgs.alejandra
             # e.nixGLPkg
           ]
           ++ e.runtimeLibs;
@@ -144,20 +151,22 @@
     packages = forAllSystems (system: let
       e = env.${system};
     in {
-      pc = e.rustPlatform.buildRustPackage {
+      pc = e.craneLib.buildPackage {
         pname = "bevy-ps2-pc";
         version = "0.1.0";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
+        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
+
         nativeBuildInputs = [e.pkgs.pkg-config];
         buildInputs = e.runtimeLibs;
       };
 
-      elf = e.rustPlatform.buildRustPackage {
+      elf = e.craneLib.buildPackage {
         pname = "bevy-ps2-elf";
         version = "0.1.0";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
+        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
+
+        cargoExtraArgs = "-Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release";
+
         nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
 
         buildPhase = ''
@@ -173,7 +182,6 @@
 
           cargo build-ps2-release
         '';
-
 
         installPhase = ''
           mkdir -p $out/bin
