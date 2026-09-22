@@ -7,11 +7,19 @@ use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use cstr_core::{CStr, CString};
 pub use ps2sdk_sys::*;
+use core::ffi::{c_char, c_int, c_void};
 
 /// Print a formatted string slice directly to the PS2 screen via EE debug output
-pub fn ps2_print(string: String) -> i32 {
+pub fn ps2_print(mut string: String) -> i32 {
+    // Append the newline in Rust to avoid needing "%s\n" in C
+    string.push('\n');
+    
     if let Ok(c_str) = CString::new(string) {
-        unsafe { scr_printf(b"%s\n\0".as_ptr(), c_str.as_ptr()) }
+        unsafe { 
+            // Pass directly as the format string, triggering no varargs
+            ps2sdk_sys::scr_printf(c_str.as_ptr() as *const c_char); 
+        }
+        0
     } else {
         -1
     }
@@ -78,6 +86,7 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    println!("Panic!\nMessage: {:?}", info.message());
     ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
     ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
 

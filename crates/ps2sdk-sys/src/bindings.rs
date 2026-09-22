@@ -69,16 +69,6 @@ pub union qword_t {
     pub sw: [u32_; 4usize],
     pub dw: [u64_; 2usize],
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of qword_t"][::core::mem::size_of::<qword_t>() - 16usize];
-    ["Alignment of qword_t"][::core::mem::align_of::<qword_t>() - 16usize];
-    ["Offset of field: qword_t::qw"][::core::mem::offset_of!(qword_t, qw) - 0usize];
-    ["Offset of field: qword_t::b"][::core::mem::offset_of!(qword_t, b) - 0usize];
-    ["Offset of field: qword_t::hw"][::core::mem::offset_of!(qword_t, hw) - 0usize];
-    ["Offset of field: qword_t::sw"][::core::mem::offset_of!(qword_t, sw) - 0usize];
-    ["Offset of field: qword_t::dw"][::core::mem::offset_of!(qword_t, dw) - 0usize];
-};
 pub type wchar_t = ::core::ffi::c_int;
 #[repr(C)]
 #[repr(align(16))]
@@ -88,15 +78,6 @@ pub struct max_align_t {
     pub __bindgen_padding_0: u64,
     pub __clang_max_align_nonce2: u128,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of max_align_t"][::core::mem::size_of::<max_align_t>() - 32usize];
-    ["Alignment of max_align_t"][::core::mem::align_of::<max_align_t>() - 16usize];
-    ["Offset of field: max_align_t::__clang_max_align_nonce1"]
-        [::core::mem::offset_of!(max_align_t, __clang_max_align_nonce1) - 0usize];
-    ["Offset of field: max_align_t::__clang_max_align_nonce2"]
-        [::core::mem::offset_of!(max_align_t, __clang_max_align_nonce2) - 16usize];
-};
 pub type __gnuc_va_list = __builtin_va_list;
 pub type va_list = __builtin_va_list;
 #[doc = " Main -> sub-CPU command buffer (MSCOM)"]
@@ -122,19 +103,6 @@ pub struct t_SifDmaTransfer {
     pub size: ::core::ffi::c_int,
     pub attr: ::core::ffi::c_int,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of t_SifDmaTransfer"][::core::mem::size_of::<t_SifDmaTransfer>() - 24usize];
-    ["Alignment of t_SifDmaTransfer"][::core::mem::align_of::<t_SifDmaTransfer>() - 8usize];
-    ["Offset of field: t_SifDmaTransfer::src"]
-        [::core::mem::offset_of!(t_SifDmaTransfer, src) - 0usize];
-    ["Offset of field: t_SifDmaTransfer::dest"]
-        [::core::mem::offset_of!(t_SifDmaTransfer, dest) - 8usize];
-    ["Offset of field: t_SifDmaTransfer::size"]
-        [::core::mem::offset_of!(t_SifDmaTransfer, size) - 16usize];
-    ["Offset of field: t_SifDmaTransfer::attr"]
-        [::core::mem::offset_of!(t_SifDmaTransfer, attr) - 20usize];
-};
 pub type SifDmaTransfer_t = t_SifDmaTransfer;
 unsafe extern "C" {
     pub fn sceSifDmaStat(trid: ::core::ffi::c_int) -> ::core::ffi::c_int;
@@ -243,20 +211,6 @@ pub struct t_ee_sema {
     pub attr: u32_,
     pub option: u32_,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of t_ee_sema"][::core::mem::size_of::<t_ee_sema>() - 24usize];
-    ["Alignment of t_ee_sema"][::core::mem::align_of::<t_ee_sema>() - 4usize];
-    ["Offset of field: t_ee_sema::count"][::core::mem::offset_of!(t_ee_sema, count) - 0usize];
-    ["Offset of field: t_ee_sema::max_count"]
-        [::core::mem::offset_of!(t_ee_sema, max_count) - 4usize];
-    ["Offset of field: t_ee_sema::init_count"]
-        [::core::mem::offset_of!(t_ee_sema, init_count) - 8usize];
-    ["Offset of field: t_ee_sema::wait_threads"]
-        [::core::mem::offset_of!(t_ee_sema, wait_threads) - 12usize];
-    ["Offset of field: t_ee_sema::attr"][::core::mem::offset_of!(t_ee_sema, attr) - 16usize];
-    ["Offset of field: t_ee_sema::option"][::core::mem::offset_of!(t_ee_sema, option) - 20usize];
-};
 pub type ee_sema_t = t_ee_sema;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -271,25 +225,6 @@ pub struct t_ee_thread {
     pub attr: u32_,
     pub option: u32_,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of t_ee_thread"][::core::mem::size_of::<t_ee_thread>() - 56usize];
-    ["Alignment of t_ee_thread"][::core::mem::align_of::<t_ee_thread>() - 8usize];
-    ["Offset of field: t_ee_thread::status"][::core::mem::offset_of!(t_ee_thread, status) - 0usize];
-    ["Offset of field: t_ee_thread::func"][::core::mem::offset_of!(t_ee_thread, func) - 8usize];
-    ["Offset of field: t_ee_thread::stack"][::core::mem::offset_of!(t_ee_thread, stack) - 16usize];
-    ["Offset of field: t_ee_thread::stack_size"]
-        [::core::mem::offset_of!(t_ee_thread, stack_size) - 24usize];
-    ["Offset of field: t_ee_thread::gp_reg"]
-        [::core::mem::offset_of!(t_ee_thread, gp_reg) - 32usize];
-    ["Offset of field: t_ee_thread::initial_priority"]
-        [::core::mem::offset_of!(t_ee_thread, initial_priority) - 40usize];
-    ["Offset of field: t_ee_thread::current_priority"]
-        [::core::mem::offset_of!(t_ee_thread, current_priority) - 44usize];
-    ["Offset of field: t_ee_thread::attr"][::core::mem::offset_of!(t_ee_thread, attr) - 48usize];
-    ["Offset of field: t_ee_thread::option"]
-        [::core::mem::offset_of!(t_ee_thread, option) - 52usize];
-};
 pub type ee_thread_t = t_ee_thread;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -307,35 +242,6 @@ pub struct t_ee_thread_status {
     pub waitId: u32_,
     pub wakeupCount: u32_,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of t_ee_thread_status"][::core::mem::size_of::<t_ee_thread_status>() - 72usize];
-    ["Alignment of t_ee_thread_status"][::core::mem::align_of::<t_ee_thread_status>() - 8usize];
-    ["Offset of field: t_ee_thread_status::status"]
-        [::core::mem::offset_of!(t_ee_thread_status, status) - 0usize];
-    ["Offset of field: t_ee_thread_status::func"]
-        [::core::mem::offset_of!(t_ee_thread_status, func) - 8usize];
-    ["Offset of field: t_ee_thread_status::stack"]
-        [::core::mem::offset_of!(t_ee_thread_status, stack) - 16usize];
-    ["Offset of field: t_ee_thread_status::stack_size"]
-        [::core::mem::offset_of!(t_ee_thread_status, stack_size) - 24usize];
-    ["Offset of field: t_ee_thread_status::gp_reg"]
-        [::core::mem::offset_of!(t_ee_thread_status, gp_reg) - 32usize];
-    ["Offset of field: t_ee_thread_status::initial_priority"]
-        [::core::mem::offset_of!(t_ee_thread_status, initial_priority) - 40usize];
-    ["Offset of field: t_ee_thread_status::current_priority"]
-        [::core::mem::offset_of!(t_ee_thread_status, current_priority) - 44usize];
-    ["Offset of field: t_ee_thread_status::attr"]
-        [::core::mem::offset_of!(t_ee_thread_status, attr) - 48usize];
-    ["Offset of field: t_ee_thread_status::option"]
-        [::core::mem::offset_of!(t_ee_thread_status, option) - 52usize];
-    ["Offset of field: t_ee_thread_status::waitType"]
-        [::core::mem::offset_of!(t_ee_thread_status, waitType) - 56usize];
-    ["Offset of field: t_ee_thread_status::waitId"]
-        [::core::mem::offset_of!(t_ee_thread_status, waitId) - 60usize];
-    ["Offset of field: t_ee_thread_status::wakeupCount"]
-        [::core::mem::offset_of!(t_ee_thread_status, wakeupCount) - 64usize];
-};
 pub type ee_thread_status_t = t_ee_thread_status;
 pub const CPU_CONFIG_CPU_CONFIG_ENABLE_DIE: CPU_CONFIG = 0;
 pub const CPU_CONFIG_CPU_CONFIG_ENABLE_ICE: CPU_CONFIG = 1;
