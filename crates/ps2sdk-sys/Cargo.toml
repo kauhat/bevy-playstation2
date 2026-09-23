@@ -2,6 +2,7 @@
 name = "ps2sdk-sys"
 version = "0.1.0"
 edition = "2024"
+links = "ps2sdk"
 
 [dependencies]
 libc = "0.2"

@@ -19,6 +19,9 @@ fn main() {
     println!("cargo:rustc-link-search=native={}/ee/lib", ps2sdk);
     println!("cargo:rustc-link-arg=-T{}/ee/startup/linkfile", ps2sdk);
 
+    // Export the linker script to dependents.
+    println!("cargo:linkfile_path=-T{}/ee/startup/linkfile", ps2sdk);
+
     // PS2SDK linker script...
     // println!("cargo:rustc-link-arg={}/ee/startup/src/crt0.o", ps2sdk);
 
