@@ -24,6 +24,6 @@ rustflags = [
   "-C", "link-arg=-latomic",
   "-C", "link-arg=-lpthreadglue", 
   "-C", "link-arg=-lpthread",     
-  "-C", "link-arg=-ldebug",
+  # "-C", "link-arg=-ldebug",
   "-C", "link-arg=-Wl,--end-group",
 ]
