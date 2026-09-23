@@ -154,6 +154,7 @@
       pc = e.craneLib.buildPackage {
         pname = "bevy-ps2-pc";
         version = "0.1.0";
+
         src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
 
         nativeBuildInputs = [e.pkgs.pkg-config];
@@ -163,37 +164,28 @@
       elf = e.craneLib.buildPackage {
         pname = "bevy-ps2-elf";
         version = "0.1.0";
-        src = e.pkgs.lib.cleanSourceWith {
-          src = e.craneLib.path ./.;
 
-          # Don't filter .json files
-          filter = path: type:
-            (e.pkgs.lib.hasSuffix ".json" path) ||
-            (e.craneLib.filterCargoSources path type);
-        };
+        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
 
-        cargoExtraArgs = "-Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mipsel-sony-ps2.json --release";
+        cargoExtraArgs = "-Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target ${./mipsel-sony-ps2.json} --release";
 
         nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
 
-        buildPhase = ''
+        preBuild = ''
           export PS2DEV="${e.ps2dev}"
           export PS2SDK="$PS2DEV/ps2sdk"
           export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
           export PS2SDK_INCDIR="$PS2SDK/ee/include"
 
           export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-
-          # FIXED: Appended .dev to wayland and libxkbcommon
           export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-
-          cargo build-ps2-release
         '';
 
-        installPhase = ''
+        installPhaseCommand = ''
           mkdir -p $out/bin
           cp target/mipsel-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
         '';
+        
         doCheck = false;
       };
 
