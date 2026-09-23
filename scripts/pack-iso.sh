@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-ELF_PATH=${1:-"target/mipsel-sony-ps2/release/bevy-ps2"}
+ELF_PATH=${1:-"target/mips64el-sony-ps2/release/bevy-ps2"}
 ISO_OUT=${2:-"target/bevy-ps2.iso"}
 ISO_ROOT="target/iso_root"
 

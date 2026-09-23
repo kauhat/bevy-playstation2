@@ -153,7 +153,7 @@
       e = env.${system};
       src = e.craneLib.cleanCargoSource ./.;
     in {
-  
+
       pc = e.craneLib.buildPackage {
         inherit src;
         pname = "bevy-ps2-pc";
@@ -176,7 +176,7 @@
           ];
         };
 
-        cargoExtraArgs = "--target ${./mipsel-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
+        cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
 
         nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
 
@@ -192,9 +192,9 @@
 
         installPhaseCommand = ''
           mkdir -p $out/bin
-          cp target/mipsel-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
+          cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
         '';
-        
+
         doCheck = false;
       };
 
