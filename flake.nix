@@ -148,24 +148,32 @@
       };
     });
 
+
     packages = forAllSystems (system: let
       e = env.${system};
     in {
+      src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
+  
       pc = e.craneLib.buildPackage {
+        inherit src;
         pname = "bevy-ps2-pc";
         version = "0.1.0";
-
-        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
 
         nativeBuildInputs = [e.pkgs.pkg-config];
         buildInputs = e.runtimeLibs;
       };
 
       elf = e.craneLib.buildPackage {
+        inherit src;
         pname = "bevy-ps2-elf";
         version = "0.1.0";
 
-        src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
+        cargoVendorDir = craneLib.vendorMultipleCargoDeps {
+          inherit (craneLib.findCargoFiles src) cargoConfigs;
+          cargoLockList = [
+            ./Cargo.lock
+            "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
+          ];
 
         cargoExtraArgs = "--target ${./mipsel-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
 
