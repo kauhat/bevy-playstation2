@@ -14,21 +14,14 @@ mod platform;
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     platform::ps2::init();
 
-    println!("This is a println!()");
+    println!("Hello, I'm a Playstation 2 Rust program!");
 
-    println!("Hello I'm a Playstation 2 Rust app");
-
-    // println!("bum\0");
-
-    // loop {
-    //     println!("arse");
-    // }
-
-    // panic!("starts");
     println!("Setting up Bevy app...");
-    let mut app = App::new();
 
-    // app.add_plugins(platform::PlatformPlugin)
+    let mut app = App::new()
+        .add_plugins(platform::PlatformPlugin)
+        .run();
+
     // .add_systems(Update, shared_game_logic);
 
     // let mut world = bevy_ecs::world::World::new();
@@ -37,13 +30,11 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // schedule.add_systems(shared_game_logic);
     // schedule.add_systems(platform::cycle_background_color_system);
 
+    println!("Bevy exited.");
+
     loop {
         // platform::ps2::wait_vsync();
-
         // app.update();
-
-        // print!("did a loop ");
-        // panic!("did a loop");
     }
 
     0
