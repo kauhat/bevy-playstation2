@@ -29,7 +29,7 @@ run-elf: build-ps2
 
     @echo "Launching {{ ELF_PATH }} in PCSX2..."
 
-    pcsx2-qt -batch -earlyconsolelog -elf "{{ ELF_PATH }}";
+    pcsx2-qt -batch -earlyconsolelog -elf "$(realpath {{ ELF_PATH }})";
 
 # Run the ISO in PCSX2.
 run-iso: build-iso
@@ -40,7 +40,7 @@ run-iso: build-iso
 
     @echo "Launching {{ ISO_PATH }} in PCSX2..."
 
-    pcsx2-qt -batch "{{ ISO_PATH }}";
+    pcsx2-qt -batch -earlyconsolelog "$(realpath {{ ISO_PATH }})";
 
 # Build and execute with debugger.
 debug: build-ps2

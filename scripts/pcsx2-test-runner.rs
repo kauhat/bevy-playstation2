@@ -1,6 +1,7 @@
 #!/usr/bin/env cargo
 
 use std::env;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -14,8 +15,8 @@ fn main() {
         std::process::exit(1);
     }
 
-    let elf_path = &args[1];
-    println!("[Runner] Launching PCSX2 with: {}", elf_path);
+    let elf_path = fs::canonicalize(&args[1]).expect("[Runner Error] Failed to canonicalize ELF path");
+    println!("[Runner] Launching PCSX2 with: {}", elf_path.to_string_lossy());
 
     // Spawn PCSX2
     let mut child = Command::new("pcsx2-qt")
@@ -23,7 +24,7 @@ fn main() {
         .arg("-nogui")
         .arg("-earlyconsolelog")
         .arg("-elf")
-        .arg(elf_path)
+        .arg(elf_path.as_path())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

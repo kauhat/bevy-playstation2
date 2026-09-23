@@ -16,18 +16,18 @@ mod platform;
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     platform::ps2::init();
-    
+
     println!("This is a println!()");
-    
+
     platform::ps2::ps2_print("Hello I'm a Playstation 2 Rust app".to_string());
 
 
     println!("bum\0");
-    
+
     // loop {
     //     println!("arse");
     // }
-    
+
     // panic!("starts");
     let mut app = App::new();
     platform::ps2::ps2_print("hmm".to_string());

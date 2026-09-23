@@ -28,6 +28,15 @@
   },
   "late-link-args": {
     "gcc": [
+      "-Wl,--start-group",
+      "-lc",
+      "-lcglue",
+      "-latomic",
+      "-lkernel",
+      "-lpthread",
+      "-lpthreadglue",
+      "-ldebug",
+      "-Wl,--end-group",
       "-nodefaultlibs",
       "-lgcc"
     ]
