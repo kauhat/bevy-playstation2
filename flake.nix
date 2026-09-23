@@ -167,7 +167,7 @@
 
         src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
 
-        cargoExtraArgs = "-Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target ${./mipsel-sony-ps2.json} --release";
+        cargoExtraArgs = "--target ${./mipsel-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
 
         nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
 
