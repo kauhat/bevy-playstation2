@@ -10,24 +10,24 @@ members = ["crates/ps2sdk-sys"]
 cstr_core = "0.2.6"
 
 # Shared dependencies...
-bevy_ecs = { version = "0.18.1", default-features = false }
-#bevy_app = { version = "0.18.1", default-features = false }
-# bevy_math = { version = "0.18.1", default-features = false }
-#bevy_transform = { version = "0.18.1", default-features = false }
+bevy_ecs = { version = "0.19.1", default-features = false }
+#bevy_app = { version = "0.19.1", default-features = false }
+# bevy_math = { version = "0.19.1", default-features = false }
+#bevy_transform = { version = "0.19.1", default-features = false }
 
 # PC host...
 [target.'cfg(not(target_arch = "mips64"))'.dependencies]
-bevy = { version = "0.18.1" } # Full default features for desktop iteration
-# bevy_transform = { version = "0.18.1" }
+bevy = { version = "0.19.1" } # Full default features for desktop iteration
+# bevy_transform = { version = "0.19.1" }
 
 # PS2 host...
 [target.'cfg(target_arch = "mips64")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
-bevy = { version = "0.18.1", default-features = false }
-bevy_ecs = { version = "0.18.1", default-features = false }
-#bevy_asset = { version = "0.18.1", default-features = false }
-#bevy_mesh = { version = "0.18.1", default-features = false }
-bevy_color = { version = "0.18.1", default-features = false }
+bevy = { version = "0.19.1", default-features = false }
+bevy_ecs = { version = "0.19.1", default-features = false }
+#bevy_asset = { version = "0.19.1", default-features = false }
+#bevy_mesh = { version = "0.19.1", default-features = false }
+bevy_color = { version = "0.19.1", default-features = false }
 
 [profile.release]
 panic = "abort"
