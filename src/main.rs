@@ -1,8 +1,6 @@
 #![cfg_attr(target_arch = "mips64", no_std)]
 #![cfg_attr(target_arch = "mips64", no_main)]
 
-#[cfg(target_arch = "mips64")]
-extern crate alloc;
 
 #[cfg(target_arch = "mips64")]
 #[macro_use]
@@ -19,21 +17,20 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     println!("This is a println!()");
 
-    platform::ps2::ps2_print("Hello I'm a Playstation 2 Rust app".to_string());
+    println!("Hello I'm a Playstation 2 Rust app");
 
-
-    println!("bum\0");
+    // println!("bum\0");
 
     // loop {
     //     println!("arse");
     // }
 
     // panic!("starts");
-    let mut app = App::new();
-    platform::ps2::ps2_print("hmm".to_string());
+    // let mut app = App::new();
+    println!("hmm");
 
     // app.add_plugins(platform::PlatformPlugin)
-        // .add_systems(Update, shared_game_logic);
+    // .add_systems(Update, shared_game_logic);
 
     // let mut world = bevy_ecs::world::World::new();
     // let mut schedule = bevy_ecs::schedule::Schedule::default();
@@ -46,7 +43,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
         // app.update();
 
-    platform::ps2::ps2_print("did a loop".to_string());
+        println!("did a loop");
         // panic!("did a loop");
     }
 

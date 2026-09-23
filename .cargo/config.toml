@@ -1,7 +1,8 @@
 [alias]
 build-ps2-dev = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mips64el-sony-ps2.json"
-build-ps2-release = "build -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mips64el-sony-ps2.json --release"
-run-ps2-release = "run -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec --target mips64el-sony-ps2.json --release"
+build-ps2 = "build --target mips64el-sony-ps2.json --release -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
+run-ps2 = "run --target mips64el-sony-ps2.json --release -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
+test-ps2 = "test --target mips64el-sony-ps2.json --release -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
 
 [target.'cfg(target_arch = "mips64")']
 linker = "mips64r5900el-ps2-elf-gcc"

@@ -1,23 +1,25 @@
 use bevy::prelude::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
+use core::ffi::{c_char, c_int, c_void};
 use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use cstr_core::{CStr, CString};
 pub use ps2sdk_sys::*;
-use core::ffi::{c_char, c_int, c_void};
+
+extern crate alloc;
 
 /// Print a formatted string slice directly to the PS2 screen via EE debug output
 pub fn ps2_print(mut string: String) -> i32 {
     // Append the newline in Rust to avoid needing "%s\n" in C
     string.push('\n');
-    
+
     if let Ok(c_str) = CString::new(string) {
-        unsafe { 
+        unsafe {
             // Pass directly as the format string, triggering no varargs
-            ps2sdk_sys::scr_printf(c_str.as_ptr() as *const c_char); 
+            ps2sdk_sys::scr_printf(c_str.as_ptr() as *const c_char);
         }
         0
     } else {
@@ -87,8 +89,6 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("Panic!\nMessage: {:?}", info.message());
-    ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
-    ps2_print(format!("Panic!\nMessage: {:?}", info.message()).to_string());
 
     unsafe {
         // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
@@ -134,12 +134,7 @@ const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 // }
 
 pub fn init() {
-    unsafe {
-        init_scr();
-        // scr_printf(b"Init!\n\0".as_ptr());
-    }
-
-    ps2_print("Init!".to_string());
+    println!("Init!");
 }
 
 pub fn wait_vsync() {

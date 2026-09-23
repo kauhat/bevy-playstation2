@@ -8,7 +8,7 @@ default: run-elf
 
 # Compile the release ELF binary for PS2
 build-ps2:
-    cargo build-ps2-release
+    cargo build-ps2
 
     mips64r5900el-ps2-elf-readelf -h {{ ELF_PATH }}
 
