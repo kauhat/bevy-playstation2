@@ -9,6 +9,7 @@ fn main() {
             .expect("Failed to get linkfile path from ps2sdk-sys");
 
         // Inject it into the final binary link step.
-        println!("cargo:rustc-link-arg=-T{}", linkfile);
+        // TODO: fails?
+        // println!("cargo:rustc-link-arg=-T{}", linkfile);
     }
 }

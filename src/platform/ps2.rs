@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
-use core::ffi::{c_char, c_int, c_uint, c_void};
+use core::ffi::{c_int, c_uint};
 use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
-use cstr_core::{CStr, CString};
 use alloc::format;
 use alloc::string::String;
 use ps2sdk_sys::*;
@@ -72,6 +71,7 @@ fn panic(info: &PanicInfo) -> ! {
         ps2sdk_sys::scr_setbgcolor(0xFF0000FF);
     }
 
+    println!("Panic!\n{:?}", info);
     println!("Panic!\nMessage: {:?}", info.message());
 
     if let Some(location) = info.location() {
@@ -92,18 +92,20 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
     let mut stack_buffer: [c_uint; MAX_DEPTH] = [0; MAX_DEPTH];
 
     // Query the PS2SDK call stack tracer
-    let frames_found = unsafe {
+    unsafe {
         ps2sdk_sys::ps2GetStackTrace(
             stack_buffer.as_mut_ptr(),
             MAX_DEPTH as c_int,
         )
     };
 
-    let count = if frames_found < 0 {
-        0
-    } else {
-        (frames_found as usize).min(MAX_DEPTH)
-    };
+    // let count = if frames_found < 0 {
+    //     0
+    // } else {
+    //     (frames_found as usize).min(MAX_DEPTH)
+    // };
+
+    let count = MAX_DEPTH as usize;
 
     // Format the results into a readable trace
     let mut backtrace_str = String::from("PS2 EE Backtrace:\n");
