@@ -174,6 +174,7 @@
             ./Cargo.lock
             "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
+        };
 
         cargoExtraArgs = "--target ${./mipsel-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
 
