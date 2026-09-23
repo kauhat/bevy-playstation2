@@ -172,7 +172,7 @@
           inherit (e.craneLib.findCargoFiles src) cargoConfigs;
           cargoLockList = [
             ./Cargo.lock
-            "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
+            "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
         };
 
