@@ -16,13 +16,17 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     println!("Hello, I'm a Playstation 2 Rust program!");
 
+    // try to allocate a large buffer to test the custom allocator
+    // (|| allocate_too_much())().unwrap_or_else(|_err: String| {
+    //     println!("Failed to allocate that much.");
+    // });
+
     println!("Setting up Bevy app...");
 
     let _app = App::new()
         .add_plugins(platform::PlatformPlugin)
+        .add_systems(Update, shared_game_logic)
         .run();
-
-    // .add_systems(Update, shared_game_logic);
 
     // let mut world = bevy_ecs::world::World::new();
     // let mut schedule = bevy_ecs::schedule::Schedule::default();
@@ -77,4 +81,15 @@ impl Default for LargeDataBuffer {
 
 fn shared_game_logic(mut commands: Commands) {
     commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
+}
+
+fn allocate_too_much() -> Result<()> {
+    let buffers = vec![
+        LargeDataBuffer::default(),
+        LargeDataBuffer::default(),
+        LargeDataBuffer::default(),
+        LargeDataBuffer::default(),
+    ];
+
+    Ok(())
 }
