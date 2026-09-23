@@ -1,38 +1,17 @@
 use bevy::prelude::*;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
-use core::ffi::{c_char, c_int, c_void};
+use core::ffi::{c_char, c_int, c_uint, c_void};
 use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use cstr_core::{CStr, CString};
+use alloc::format;
+use alloc::string::String;
 use ps2sdk_sys::*;
 
 extern crate alloc;
-
-/// Print a formatted string slice directly to the PS2 screen via EE debug output
-pub fn ps2_print(mut string: String) -> i32 {
-    // Append the newline in Rust to avoid needing "%s\n" in C
-    string.push('\n');
-
-    if let Ok(c_str) = CString::new(string) {
-        unsafe {
-            // Pass directly as the format string, triggering no varargs
-            ps2sdk_sys::scr_printf(c_str.as_ptr() as *const c_char);
-        }
-        0
-    } else {
-        -1
-    }
-}
-
-/// A print macro similar to `println!` that renders text to the PS2 screen.
-// #[macro_export]
-// macro_rules! ps2_println {
-//     ($($arg:tt)*) => {$crate::ps2_print(format_args!($($arg)*));
-//     };
-// }
 
 pub struct Ps2PlatformPlugin;
 
@@ -88,16 +67,57 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    println!("Panic!\nMessage: {:?}", info.message());
-
     unsafe {
         // Set background color to red.
         ps2sdk_sys::scr_setbgcolor(0xFF0000FF);
     }
 
+    println!("Panic!\nMessage: {:?}", info.message());
+
+    if let Some(location) = info.location() {
+        println!("Location: {}:{}", location.file(), location.line());
+    }
+
+    // Fetch and print the 16 deepest frame addresses from PS2 memory
+    let backtrace = get_ps2_backtrace::<16>();
+    println!("{}", backtrace);
+
     loop {
         core::hint::spin_loop();
     }
+}
+
+pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
+    // Array buffer to hold instruction pointers populated by PS2SDK
+    let mut stack_buffer: [c_uint; MAX_DEPTH] = [0; MAX_DEPTH];
+
+    // Query the PS2SDK call stack tracer
+    let frames_found = unsafe {
+        ps2sdk_sys::ps2GetStackTrace(
+            stack_buffer.as_mut_ptr(),
+            MAX_DEPTH as c_int,
+        )
+    };
+
+    let count = if frames_found < 0 {
+        0
+    } else {
+        (frames_found as usize).min(MAX_DEPTH)
+    };
+
+    // Format the results into a readable trace
+    let mut backtrace_str = String::from("PS2 EE Backtrace:\n");
+    for (idx, &pc_addr) in stack_buffer[..count].iter().enumerate() {
+        // Address format compatible with addr2line or PCSX2 ELF symbol maps
+        let line = format!("  {:2}: {:#010x}\n", idx, pc_addr);
+        backtrace_str.push_str(&line);
+    }
+
+    if count == 0 {
+        backtrace_str.push_str("  <no stack frames found>\n");
+    }
+
+    backtrace_str
 }
 
 // Memory-Mapped IO addresses for the Emotion Engine / GS
