@@ -151,8 +151,8 @@
 
     packages = forAllSystems (system: let
       e = env.${system};
+      src = e.craneLib.cleanCargoSource ./.;
     in {
-      src = e.craneLib.cleanCargoSource (e.craneLib.path ./.);
   
       pc = e.craneLib.buildPackage {
         inherit src;
@@ -168,8 +168,8 @@
         pname = "bevy-ps2-elf";
         version = "0.1.0";
 
-        cargoVendorDir = craneLib.vendorMultipleCargoDeps {
-          inherit (craneLib.findCargoFiles src) cargoConfigs;
+        cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
+          inherit (e.craneLib.findCargoFiles src) cargoConfigs;
           cargoLockList = [
             ./Cargo.lock
             "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
