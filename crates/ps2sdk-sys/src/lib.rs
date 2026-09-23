@@ -2,7 +2,6 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(tests::test_runner)]
 #![reexport_test_harness_main = "test_main"]
-
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]

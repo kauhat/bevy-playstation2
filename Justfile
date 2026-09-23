@@ -51,7 +51,7 @@ debug: build-ps2
 
     @echo "Debugging {{ ELF_PATH }} in PCSX2..."
 
-    pcsx2-qt -batch -debugger -earlyconsolelog -elf "{{ ELF_PATH }}";
+    pcsx2-qt -batch -debugger -earlyconsolelog -elf "$(realpath {{ ELF_PATH }})";
 
 generate-bindings:
     nix run nixpkgs#rust-bindgen -- ./crates/ps2sdk-sys/wrapper.h -o ./crates/ps2sdk-sys/src/bindings.rs --use-core --no-layout-tests -- -I$PS2SDK/common/include -I$PS2SDK/ee/include -D_EE -target mips64el-none-elf -mabi=n32

@@ -23,22 +23,28 @@
       "-EL",
       "-mabi=n32",
       "-mips3",
-      "-Wl,-m,elf32lr5900n32"
+      "-Wl,-m,elf32lr5900n32",
+      "-O2",
+      "-Wall",
+      "-gdwarf-2",
+      "-gz"
     ]
   },
   "late-link-args": {
     "gcc": [
+      "-nodefaultlibs",
+      "-lm",
+      "-lgcc",
       "-Wl,--start-group",
       "-lc",
+      "-lcdvd",
       "-lcglue",
-      "-latomic",
       "-lkernel",
+      "-latomic",
       "-lpthread",
       "-lpthreadglue",
       "-ldebug",
-      "-Wl,--end-group",
-      "-nodefaultlibs",
-      "-lgcc"
+      "-Wl,--end-group"
     ]
   }
 }

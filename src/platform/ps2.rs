@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use cstr_core::{CStr, CString};
-pub use ps2sdk_sys::*;
+use ps2sdk_sys::*;
 
 extern crate alloc;
 
@@ -91,12 +91,8 @@ fn panic(info: &PanicInfo) -> ! {
     println!("Panic!\nMessage: {:?}", info.message());
 
     unsafe {
-        // Direct MMIO: Set the Graphics Synthesizer background color to bright blue
-        // R=0x00, G=0x00, B=0xFF
-        GS_BGCOLOR.write_volatile(0x0000_00FF);
-
-        // Execute MIPS SYNC instruction if available to force bus write
-        // core::arch::asm!("sync", options(nostack, preserves_flags));
+        // Set background color to red.
+        ps2sdk_sys::scr_setbgcolor(0xFF0000FF);
     }
 
     loop {
@@ -105,12 +101,12 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 // Memory-Mapped IO addresses for the Emotion Engine / GS
-const GS_PMODE: *mut u64 = 0x1200_0000 as *mut u64;
-const GS_SMODE2: *mut u64 = 0x1200_0020 as *mut u64;
-const GS_DISPFB2: *mut u64 = 0x1200_0090 as *mut u64;
-const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
-const GS_CSR: *mut u64 = 0x1200_1000 as *mut u64;
-const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
+// const GS_PMODE: *mut u64 = 0x1200_0000 as *mut u64;
+// const GS_SMODE2: *mut u64 = 0x1200_0020 as *mut u64;
+// const GS_DISPFB2: *mut u64 = 0x1200_0090 as *mut u64;
+// const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
+// const GS_CSR: *mut u64 = 0x1200_1000 as *mut u64;
+// const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 
 // #[unsafe(no_mangle)]
 // pub extern "C" fn __start() -> ! {
@@ -134,63 +130,64 @@ const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
 // }
 
 pub fn init() {
+    unsafe {
+        ps2sdk_sys::init_scr();
+    }
+
     println!("Init!");
 }
 
-pub fn wait_vsync() {
-    unsafe {
-        // Clear the VSync flag by writing 1 to bit 3
-        GS_CSR.write_volatile(1 << 3);
+// pub fn wait_vsync() {
+//     unsafe {
+//         // Clear the VSync flag by writing 1 to bit 3
+//         GS_CSR.write_volatile(1 << 3);
 
-        // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
-        while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
-            core::hint::spin_loop();
-        }
-    }
-}
+//         // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
+//         while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
+//             core::hint::spin_loop();
+//         }
+//     }
+// }
 
-//
-//
-//
+// fn init_ps2_hardware() {
+//     unsafe {
+//         // Minimal GS initialization for NTSC display output
+//         core::ptr::write_volatile(0x1200_0020 as *mut u64, 0x02); // SMODE2
+//         core::ptr::write_volatile(0x1200_0000 as *mut u64, 0x66); // PMODE
+//     }
+// }
 
-fn init_ps2_hardware() {
-    unsafe {
-        // Minimal GS initialization for NTSC display output
-        core::ptr::write_volatile(0x1200_0020 as *mut u64, 0x02); // SMODE2
-        core::ptr::write_volatile(0x1200_0000 as *mut u64, 0x66); // PMODE
-    }
-}
+// fn init_gs() {
+//     unsafe {
+//         // 1. Reset the Graphics Synthesizer (Write 1 to bit 9 of CSR)
+//         GS_CSR.write_volatile(1 << 9);
 
-fn init_gs() {
-    unsafe {
-        // 1. Reset the Graphics Synthesizer (Write 1 to bit 9 of CSR)
-        GS_CSR.write_volatile(1 << 9);
+//         // 2. Enable Read Circuit 1 & 2 in PMODE (Bits 0 and 1)
+//         // This tells the GS to actually output a visual signal to the screen.
+//         GS_PMODE.write_volatile(0x0000_0000_0000_0066);
+//     }
+// }
 
-        // 2. Enable Read Circuit 1 & 2 in PMODE (Bits 0 and 1)
-        // This tells the GS to actually output a visual signal to the screen.
-        GS_PMODE.write_volatile(0x0000_0000_0000_0066);
-    }
-}
+// fn init_video() {
+//     unsafe {
+//         // 1. Set Video Mode to NTSC (Interlaced)
+//         GS_SMODE2.write_volatile(0x02);
 
-fn init_video() {
-    unsafe {
-        // 1. Set Video Mode to NTSC (Interlaced)
-        GS_SMODE2.write_volatile(0x02);
+//         // 2. Configure Display Buffer 2 (Format: PSMCT32, Width: 10, Base: 0)
+//         GS_DISPFB2.write_volatile(0x0000_0000_0900_0000);
 
-        // 2. Configure Display Buffer 2 (Format: PSMCT32, Width: 10, Base: 0)
-        GS_DISPFB2.write_volatile(0x0000_0000_0900_0000);
+//         // 3. Configure Display Area 2 (Magic numbers for standard 640x448 NTSC)
+//         GS_DISPLAY2.write_volatile(0x0009_4260_001A_09FF);
 
-        // 3. Configure Display Area 2 (Magic numbers for standard 640x448 NTSC)
-        GS_DISPLAY2.write_volatile(0x0009_4260_001A_09FF);
-
-        // 4. Enable Read Circuit 1 & 2 to push pixels to the screen
-        GS_PMODE.write_volatile(0x0000_0000_0000_0066);
-    }
-}
+//         // 4. Enable Read Circuit 1 & 2 to push pixels to the screen
+//         GS_PMODE.write_volatile(0x0000_0000_0000_0066);
+//     }
+// }
 
 fn hello_world_system() {
     unsafe {
-        GS_BGCOLOR.write_volatile(u64::MAX);
+        // Set background color to blue.
+        ps2sdk_sys::scr_setbgcolor(0x0000FFFF);
     }
 }
 
@@ -224,13 +221,14 @@ fn cycle_background_color_system(mut hue: Local<f32>) {
     let color = (b6 << 16) | (g6 << 8) | r6;
 
     unsafe {
-        GS_BGCOLOR.write_volatile(color as u64);
+        // Set background color to red.
+        ps2sdk_sys::scr_setbgcolor(color);
     }
 }
 
 pub fn count_entities_system(entities: Query<Entity>) {
     let total_entities = entities.iter().count();
-    ps2_print(format!("Total entities in world: {}", total_entities).to_string());
+    print!("Total entities in world: {}", total_entities);
 }
 
 //

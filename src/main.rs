@@ -1,7 +1,6 @@
 #![cfg_attr(target_arch = "mips64", no_std)]
 #![cfg_attr(target_arch = "mips64", no_main)]
 
-
 #[cfg(target_arch = "mips64")]
 #[macro_use]
 extern crate ps2sdk_sys;
@@ -26,8 +25,8 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // }
 
     // panic!("starts");
-    // let mut app = App::new();
-    println!("hmm");
+    println!("Setting up Bevy app...");
+    let mut app = App::new();
 
     // app.add_plugins(platform::PlatformPlugin)
     // .add_systems(Update, shared_game_logic);
@@ -43,7 +42,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
         // app.update();
 
-        println!("did a loop");
+        // print!("did a loop ");
         // panic!("did a loop");
     }
 
