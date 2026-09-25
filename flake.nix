@@ -184,10 +184,8 @@
           export PS2DEV="${e.ps2dev}"
           export PS2SDK="$PS2DEV/ps2sdk"
           export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
-          export PS2SDK_INCDIR="$PS2SDK/ee/include"
-
-          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-          # export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export PATH="$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin"
+          export RUSTFLAGS="${builtins.getEnv "RUSTFLAGS"} -L native=$PS2SDK_LIBDIR"
         '';
 
         installPhaseCommand = ''
