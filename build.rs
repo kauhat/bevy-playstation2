@@ -5,15 +5,17 @@ fn main() {
 
     if target_arch == "mips64" {
         // Get linkfile and search path from the ps2sdk-sys build script.
+        let bin_name = env::var("CARGO_PKG_NAME")
+            .expect("CARGO_PKG_NAME is not set");
+    
         let linkfile = env::var("DEP_PS2SDK_LINKFILE_PATH")
-            .expect("Failed to get linkfile path from ps2sdk-sys");
+            .expect("DEP_PS2SDK_LINKFILE_PATH is not set");
     
         let link_search = env::var("DEP_PS2SDK_LINK_SEARCH")
-            .expect("Failed to get link search path from ps2sdk-sys");
+            .expect("DEP_PS2SDK_LINK_SEARCH is not set");
     
-        // These apply to the final bevy-ps2 binary.
         println!("cargo:rustc-link-search=native={link_search}");
-        println!("cargo:rustc-link-arg=-T{linkfile}");
+        println!("cargo:rustc-link-arg-bin={bin_name}=-T{linkfile}");
     
         println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINKFILE_PATH");
         println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINK_SEARCH");
