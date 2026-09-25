@@ -5,5 +5,12 @@ edition = "2024"
 links = "ps2sdk"
 
 [dependencies]
-libc = "0.2"
+# libc = "0.2"
 cstr_core = "0.2.6"
+
+[lib]
+test = false
+
+# [[test]]
+# name = "hardware"
+# # harness = false

@@ -1011,4 +1011,41 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn scr_getCursor() -> ::core::ffi::c_int;
 }
+unsafe extern "C" {
+    pub fn printf(format: *const ::core::ffi::c_char, ...) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn getchar() -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn putchar(c: ::core::ffi::c_int) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn puts(s: *const ::core::ffi::c_char) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn gets(s: *mut ::core::ffi::c_char) -> *mut ::core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn fdprintf(
+        fd: ::core::ffi::c_int,
+        format: *const ::core::ffi::c_char,
+        ...
+    ) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn fdgetc(fd: ::core::ffi::c_int) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn fdputc(c: ::core::ffi::c_int, fd: ::core::ffi::c_int) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn fdputs(s: *const ::core::ffi::c_char, fd: ::core::ffi::c_int) -> ::core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn fdgets(
+        buf: *mut ::core::ffi::c_char,
+        fd: ::core::ffi::c_int,
+    ) -> *mut ::core::ffi::c_char;
+}
 pub type __builtin_va_list = *mut ::core::ffi::c_void;

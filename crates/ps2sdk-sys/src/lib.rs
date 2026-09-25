@@ -1,11 +1,9 @@
 #![no_std]
-#![feature(custom_test_frameworks)]
-#![test_runner(tests::test_runner)]
-#![reexport_test_harness_main = "test_main"]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+// use libc::posix::{printf, write, puts};
 use core::ffi::c_char;
 use core::fmt::{self, Write};
 use cstr_core::CString;
@@ -23,14 +21,20 @@ pub struct LibcConsole;
 
 impl Write for LibcConsole {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+
+        let format = CString::new("%s").expect("Failed to create string.");
         let string = CString::new(s).expect("Failed to create string.");
 
         unsafe {
             // Print to stdout.
-            _print(string.as_ptr() as *const c_char);
+            _print(string.as_ptr());
+
+            // printf(format.as_ptr(), string.as_ptr());
+
+            // puts(string.as_ptr());
 
             // Print to display.
-            scr_printf(string.as_ptr() as *const c_char);
+            scr_printf(string.as_ptr());
         }
 
         Ok(())
