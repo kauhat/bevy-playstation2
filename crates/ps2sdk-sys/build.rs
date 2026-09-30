@@ -1,10 +1,10 @@
 use std::env;
 
 fn main() {
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-
-    if target_arch != "mips64" {
-        println!("Unexpected target architecture: {}", target_arch);
+    let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap_or_default();
+    
+    if target_vendor != "sony" {
+        println!("Unexpected target vendor: {}", target_vendor);
         return;
     }
 

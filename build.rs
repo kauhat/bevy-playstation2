@@ -1,9 +1,9 @@
 use std::env;
 
 fn main() {
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
-
-    if target_arch == "mips64" {
+    let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap_or_default();
+    
+    if target_vendor == "sony" {
         // Get linkfile and search path from the ps2sdk-sys build script.
         let bin_name = env::var("CARGO_PKG_NAME")
             .expect("CARGO_PKG_NAME is not set");

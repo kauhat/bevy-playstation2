@@ -16,12 +16,12 @@ bevy_ecs = { version = "0.19.1", default-features = false }
 #bevy_transform = { version = "0.19.1", default-features = false }
 
 # PC host...
-[target.'cfg(not(target_arch = "mips64"))'.dependencies]
+[target.'cfg(not(target_vendor = "sony"))'.dependencies]
 bevy = { version = "0.19.1" } # Full default features for desktop iteration
 # bevy_transform = { version = "0.19.1" }
 
 # PS2 host...
-[target.'cfg(target_arch = "mips64")'.dependencies]
+[target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
 bevy = { version = "0.19.1", default-features = false }
 bevy_ecs = { version = "0.19.1", default-features = false }

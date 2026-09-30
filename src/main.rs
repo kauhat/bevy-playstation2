@@ -1,7 +1,7 @@
-#![cfg_attr(target_arch = "mips64", no_std)]
-#![cfg_attr(target_arch = "mips64", no_main)]
+#![cfg_attr(target_vendor = "sony", no_std)]
+#![cfg_attr(target_vendor = "sony", no_main)]
 
-#[cfg(target_arch = "mips64")]
+#[cfg(target_vendor = "sony")]
 #[macro_use]
 extern crate ps2sdk_sys;
 
@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 mod platform;
 
-#[cfg(target_arch = "mips64")]
+#[cfg(target_vendor = "sony")]
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     platform::ps2::init();
@@ -54,7 +54,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 //     }
 // }
 
-#[cfg(not(target_arch = "mips64"))]
+#[cfg(not(target_vendor = "sony"))]
 fn main() {
     App::new()
         .add_plugins(platform::PlatformPlugin)
