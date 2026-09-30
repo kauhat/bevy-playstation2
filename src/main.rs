@@ -21,7 +21,10 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     //     println!("Failed to allocate that much.");
     // });
 
+    // let mut app = App::empty();
+
     println!("Setting up Bevy app...");
+
 
     let _app = App::new()
         .add_plugins(platform::PlatformPlugin)

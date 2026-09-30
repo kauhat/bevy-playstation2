@@ -48,7 +48,13 @@ unsafe impl GlobalAlloc for PS2StaticArena {
         } else {
             *offset = start + size;
             let heap_ptr = self.heap.get() as *mut u8;
-            unsafe { heap_ptr.add(start) }
+            unsafe {
+                let res = heap_ptr.add(start);
+                
+                println!("Allocated at: {:p}\0", heap_ptr.add(start));
+                
+                res
+            }
         }
     }
 
@@ -144,10 +150,12 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
 
 pub fn init() {
     unsafe {
+        ps2sdk_sys::InitDebug();
         ps2sdk_sys::init_scr();
     }
 
     println!("Init!");
+    println!("Heap: {:?} Offset: {:?}", ALLOCATOR.heap.get(), ALLOCATOR.offset.get());
 }
 
 // pub fn wait_vsync() {

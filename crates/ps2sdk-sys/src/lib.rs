@@ -21,20 +21,35 @@ pub struct LibcConsole;
 
 impl Write for LibcConsole {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        // A 256-byte stack buffer. We leave 1 byte at the end for the null terminator.
+        const BUF_LEN: usize = 256;
+        let mut buf = [0u8; BUF_LEN];
+        let mut i = 0;
 
-        let format = CString::new("%s").expect("Failed to create string.");
-        let string = CString::new(s).expect("Failed to create string.");
+        for byte in s.bytes() {
+            buf[i] = byte;
+            i += 1;
 
-        unsafe {
-            // Print to stdout.
-            _print(string.as_ptr());
+            // If the buffer fills up, flush it to the screen, then reset
+            if i == BUF_LEN - 1 {
+                buf[i] = 0; // Null terminate
+                unsafe {
+                    // Use printf/scr_printf. 
+                    // Note: puts() appends a newline automatically, which breaks chunking!
+                    printf(buf.as_ptr() as *const c_char);
+                    scr_printf(buf.as_ptr() as *const c_char);
+                }
+                i = 0;
+            }
+        }
 
-            // printf(format.as_ptr(), string.as_ptr());
-
-            // puts(string.as_ptr());
-
-            // Print to display.
-            scr_printf(string.as_ptr());
+        // Flush any remaining bytes
+        if i > 0 {
+            buf[i] = 0; // Null terminate
+            unsafe {
+                printf(buf.as_ptr() as *const c_char);
+                scr_printf(buf.as_ptr() as *const c_char);
+            }
         }
 
         Ok(())
