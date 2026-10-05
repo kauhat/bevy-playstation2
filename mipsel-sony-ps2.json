@@ -1,0 +1,49 @@
+{
+  "arch": "mips",
+  "cpu": "r5900",
+  "abi": "eabi",
+  "llvm-abiname": "eabi",
+  "vendor": "sony",
+  "executables": true,
+  "data-layout": "e-m:m-p:32:32-i8:8:32-i16:16:32-i64:64-n32-S64",
+  "features": "+single-float,+strict-align",
+  "linker": "mips64r5900el-ps2-elf-gcc",
+  "linker-flavor": "gnu-cc",
+  "llvm-target": "mipsel-sony-ps2",
+  "max-atomic-width": 32,
+  "os": "none",
+  "panic-strategy": "abort",
+  "position-independent-executables": false,
+  "relocation-model": "static",
+  "relro-level": "off",
+  "target-c-int-width": 32,
+  "target-endian": "little",
+  "target-pointer-width": 32,
+  "pre-link-args": {
+    "gnu-cc": [
+      "-EL",
+      "-march=r5900",
+      "-fno-lto",
+      "-Wall",
+      "-gdwarf-2",
+      "-gz"
+    ]
+  },
+  "late-link-args": {
+    "gnu-cc": [
+      "-nodefaultlibs",
+      "-lm",
+      "-lgcc",
+      "-Wl,--start-group",
+      "-lc",
+      "-lcdvd",
+      "-lcglue",
+      "-lkernel",
+      "-latomic",
+      "-lpthread",
+      "-lpthreadglue",
+      "-ldebug",
+      "-Wl,--end-group"
+    ]
+  }
+}
