@@ -1,6 +1,6 @@
 # Default target JSON specification file
 TARGET := "mips64el-sony-ps2.json"
-ELF_PATH := "target/mips64el-sony-ps2/release/bevy-ps2"
+ELF_PATH := "target/mips64el-sony-ps2/debug/bevy-ps2"
 ISO_PATH := "target/bevy-ps2.iso"
 
 # Default command
