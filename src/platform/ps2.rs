@@ -1,6 +1,9 @@
 use alloc::format;
 use alloc::string::String;
 use bevy::prelude::*;
+use bevy::time::TimePlugin;
+use bevy_utils::Instant;
+use core::time::Duration;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
@@ -17,7 +20,24 @@ pub struct Ps2PlatformPlugin;
 impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, init)
+        app.set_runner(ps2_runner);
+        app.add_plugins(TimePlugin);
         app.add_systems(Update, count_entities_system);
+    }
+}
+
+fn ps2_runner(mut app: App) -> AppExit {
+    loop {
+        println!("In main loop");
+
+        // TODO: clock!
+        // Instant::set_elapsed(hardware_elapsed_time);
+
+        app.update();
+        
+        if let Some(exit) = app.should_exit() {
+            return exit;
+        }
     }
 }
 
@@ -251,9 +271,19 @@ fn cycle_background_color_system(mut hue: Local<f32>) {
     }
 }
 
-pub fn count_entities_system(entities: Query<Entity>) {
-    let total_entities = entities.iter().count();
-    println!("Total entities in world: {}", total_entities);
+pub fn count_entities_system(
+    entities: Query<Entity>,
+    mut last_count: Local<Option<usize>>,
+    time: Res<Time>,
+) {
+    let current_count = entities.iter().len();
+
+    if last_count.map_or(true, |prev| prev != current_count) {
+        *last_count = Some(current_count);
+        
+        let elapsed = time.elapsed_secs();
+        println!("[{elapsed:.2}s] Total entities: {current_count}");
+    }
 }
 
 //

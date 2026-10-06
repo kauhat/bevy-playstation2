@@ -33,9 +33,10 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     // breakpoint();
 
-    let mut app = App::new();
-    app.add_plugins(platform::PlatformPlugin);
-    app.add_systems(Update, shared_game_logic);
+    let mut app = App::new()
+        .add_plugins(platform::PlatformPlugin)
+        .add_systems(Update, shared_game_logic)
+        .run();
         
     // app.run();
 
@@ -45,13 +46,9 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // schedule.add_systems(shared_game_logic);
     // schedule.add_systems(platform::cycle_background_color_system);
 
-    
-    loop {
-        // platform::ps2::wait_vsync();
-        app.update();
-    }
-    
     println!("Bevy exited. Reason: {:?}", app);
+    
+    loop {}
     
     0
 }
@@ -92,7 +89,7 @@ impl Default for LargeDataBuffer {
 }
 
 fn shared_game_logic(mut commands: Commands) {
-    commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
+    // commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
 }
 
 fn allocate_too_much() -> Result<()> {
