@@ -34,7 +34,7 @@ impl Write for LibcConsole {
             if i == BUF_LEN - 1 {
                 buf[i] = 0; // Null terminate
                 unsafe {
-                    // Use printf/scr_printf. 
+                    // Use printf/scr_printf.
                     // Note: puts() appends a newline automatically, which breaks chunking!
                     printf(buf.as_ptr() as *const c_char);
                     scr_printf(buf.as_ptr() as *const c_char);

@@ -1,11 +1,15 @@
+#![feature(breakpoint)]
 #![cfg_attr(target_vendor = "sony", no_std)]
 #![cfg_attr(target_vendor = "sony", no_main)]
 
 #[cfg(target_vendor = "sony")]
 #[macro_use]
 extern crate ps2sdk_sys;
+extern crate alloc;
 
+use alloc::boxed::Box;
 use bevy::prelude::*;
+use core::arch::breakpoint;
 
 mod platform;
 
@@ -16,6 +20,8 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     println!("Hello, I'm a Playstation 2 Rust program!");
 
+    // simple_allocation();
+
     // try to allocate a large buffer to test the custom allocator
     // (|| allocate_too_much())().unwrap_or_else(|_err: String| {
     //     println!("Failed to allocate that much.");
@@ -25,8 +31,9 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     println!("Setting up Bevy app...");
 
+    // breakpoint();
 
-    let _app = App::new()
+    let app = App::new()
         .add_plugins(platform::PlatformPlugin)
         .add_systems(Update, shared_game_logic)
         .run();
@@ -37,7 +44,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // schedule.add_systems(shared_game_logic);
     // schedule.add_systems(platform::cycle_background_color_system);
 
-    println!("Bevy exited.");
+    println!("Bevy exited. Reason: {:?}", app);
 
     loop {
         // platform::ps2::wait_vsync();
@@ -95,4 +102,12 @@ fn allocate_too_much() -> Result<()> {
     ];
 
     Ok(())
+}
+
+fn simple_allocation() {
+    let heap_value_1 = Box::new(41);
+    let heap_value_2 = Box::new(13);
+
+    assert_eq!(*heap_value_1, 41);
+    assert_eq!(*heap_value_2, 13);
 }

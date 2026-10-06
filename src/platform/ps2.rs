@@ -50,9 +50,9 @@ unsafe impl GlobalAlloc for PS2StaticArena {
             let heap_ptr = self.heap.get() as *mut u8;
             unsafe {
                 let res = heap_ptr.add(start);
-                
-                println!("Allocated at: {:p}\0", heap_ptr.add(start));
-                
+
+                // println!("Allocated at: {:p}\0", heap_ptr.add(start));
+
                 res
             }
         }
@@ -94,13 +94,13 @@ fn panic(info: &PanicInfo) -> ! {
     }
 }
 
+#[inline(always)]
 pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
     // Array buffer to hold instruction pointers populated by PS2SDK
     let mut stack_buffer: [c_uint; MAX_DEPTH] = [0; MAX_DEPTH];
 
     // Query the PS2SDK call stack tracer
     unsafe { ps2sdk_sys::ps2GetStackTrace(stack_buffer.as_mut_ptr(), MAX_DEPTH as c_int) };
-
 
     let count = MAX_DEPTH;
 
@@ -155,7 +155,11 @@ pub fn init() {
     }
 
     println!("Init!");
-    println!("Heap: {:?} Offset: {:?}", ALLOCATOR.heap.get(), ALLOCATOR.offset.get());
+    println!(
+        "Heap: {:?} Offset: {:?}",
+        ALLOCATOR.heap.get(),
+        ALLOCATOR.offset.get()
+    );
 }
 
 // pub fn wait_vsync() {
@@ -249,7 +253,7 @@ fn cycle_background_color_system(mut hue: Local<f32>) {
 
 pub fn count_entities_system(entities: Query<Entity>) {
     let total_entities = entities.iter().count();
-    print!("Total entities in world: {}", total_entities);
+    println!("Total entities in world: {}", total_entities);
 }
 
 //

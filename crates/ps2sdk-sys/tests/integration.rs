@@ -6,9 +6,9 @@
 
 extern crate alloc;
 
-use core::panic::PanicInfo;
-use core::cell::UnsafeCell;
 use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
+use core::panic::PanicInfo;
 use core::ptr;
 
 pub trait Testable {
@@ -36,7 +36,6 @@ pub fn test_runner(tests: &[&dyn Testable]) {
     // Exit loop or trigger PCSX2 shutdown via RPC/syscall
     loop {}
 }
-
 
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
