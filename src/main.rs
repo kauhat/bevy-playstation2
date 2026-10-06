@@ -33,10 +33,11 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     // breakpoint();
 
-    let app = App::new()
-        .add_plugins(platform::PlatformPlugin)
-        .add_systems(Update, shared_game_logic)
-        .run();
+    let mut app = App::new();
+    app.add_plugins(platform::PlatformPlugin);
+    app.add_systems(Update, shared_game_logic);
+        
+    // app.run();
 
     // let mut world = bevy_ecs::world::World::new();
     // let mut schedule = bevy_ecs::schedule::Schedule::default();
@@ -44,13 +45,14 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // schedule.add_systems(shared_game_logic);
     // schedule.add_systems(platform::cycle_background_color_system);
 
-    println!("Bevy exited. Reason: {:?}", app);
-
+    
     loop {
         // platform::ps2::wait_vsync();
-        // app.update();
+        app.update();
     }
-
+    
+    println!("Bevy exited. Reason: {:?}", app);
+    
     0
 }
 
