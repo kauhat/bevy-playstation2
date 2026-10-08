@@ -53,5 +53,36 @@ debug: build-ps2
 
     pcsx2-qt -batch -debugger -earlyconsolelog -elf "$(realpath {{ ELF_PATH }})";
 
-generate-bindings:
-    nix run nixpkgs#rust-bindgen -- ./crates/ps2sdk-sys/wrapper.h -o ./crates/ps2sdk-sys/src/bindings.rs --use-core --no-layout-tests -- -I$PS2SDK/common/include -I$PS2SDK/ee/include -D_EE -target mipsel-none-elf -mabi=n32
+# PS2SDK...
+ps2sdk-bindings:
+    bindgen ./crates/ps2sdk-sys/wrapper.h \
+        -o ./crates/ps2sdk-sys/src/bindings.rs \
+        --use-core \
+        --no-layout-tests \
+        -- \
+        -D_EE \
+        -target mips64el-unknown-elf \
+        -I$PS2DEV/ee/mips64r5900el-ps2-elf/include \
+        -I$PS2DEV/ps2sdk/common/include \
+        -I$PS2DEV/ps2sdk/ee/include \
+        -I$PS2DEV/ps2sdk/iop/include \
+        -I$PS2DEV/ee/include \
+        -I$PS2DEV/gsKit/include \
+        -I$PS2DEV/iop/include
+
+# Prussia fork...
+prussia_branch := "master"
+prussia_prefix := "vendor/prussia"
+
+prussia-remotes:
+    -git remote add "prussia-fork" git@github.com:kauhat/prussia.git
+    -git remote add "prussia-upstream" git@github.com:Ravenslofty/prussia.git
+
+prussia-subtree-add remote="prussia-fork" branch=prussia_branch:
+    git subtree add --prefix={{ prussia_prefix }} {{ remote }} {{ branch }}
+
+prussia-subtree-pull remote="prussia-fork" branch=prussia_branch:
+    git subtree pull --prefix={{ prussia_prefix }} {{ remote }} {{ branch }}
+
+prussia-subtree-push remote="prussia-fork" branch=prussia_branch:
+    git subtree push --prefix={{ prussia_prefix }} {{ remote }} {{ branch }} 
