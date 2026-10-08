@@ -30,3 +30,6 @@ rustflags = [
   # "-C", "link-arg=-ldebug",
   # "-C", "link-arg=-Wl,--end-group",
 ]
+
+# [env]
+# LD_LIBRARY_PATH = { value = "", relative = false, force = false }

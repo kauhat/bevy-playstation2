@@ -4,30 +4,42 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["crates/ps2sdk-sys"]
+members = [
+    "crates/ps2sdk-sys",
+    "vendor/prussia/prussia_rt"
+]
 
 [dependencies]
 cstr_core = "0.2.6"
 
-# Shared dependencies...
-bevy_ecs = { version = "0.19.1", default-features = false }
+# # Shared dependencies...
+# bevy_ecs = { version = "0.19.1", default-features = false }
 #bevy_app = { version = "0.19.1", default-features = false }
 # bevy_math = { version = "0.19.1", default-features = false }
+# bevy_transform = { version = "0.19.1", default-features = false }
 #bevy_transform = { version = "0.19.1", default-features = false }
 
 # PC host...
 [target.'cfg(not(target_vendor = "sony"))'.dependencies]
 bevy = { version = "0.19.1" } # Full default features for desktop iteration
 # bevy_transform = { version = "0.19.1" }
+bevy_ecs = { version = "0.19.1" }
+#bevy_mesh = { version = "0.19.1" }
+bevy_color = { version = "0.19.1" }
+bevy_animation = { version = "0.19.1" }
 
 # PS2 host...
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
+prussia_rt = { path = "vendor/prussia/prussia_rt" }
 bevy = { version = "0.19.1", default-features = false }
 bevy_ecs = { version = "0.19.1", default-features = false }
-#bevy_asset = { version = "0.19.1", default-features = false }
 #bevy_mesh = { version = "0.19.1", default-features = false }
 bevy_color = { version = "0.19.1", default-features = false }
+bevy_animation = { version = "0.19.1", default-features = false }
+
+[profile.dev]
+panic = "abort"
 
 [profile.release]
 panic = "abort"

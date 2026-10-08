@@ -76,6 +76,9 @@ pub struct SharedPlugin;
 impl Plugin for SharedPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(TimePlugin);
+        app.add_plugins(TransformPlugin);
+        // app.add_plugins(HierarchyPropagatePlugin);
+        app.add_plugins(AnimationPlugin);
         app.add_systems(Update, shared_game_logic);
         app.add_systems(Update, count_entities_system);
     }
