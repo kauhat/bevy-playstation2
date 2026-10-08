@@ -10,18 +10,18 @@ pub fn _printdebug(args: core::fmt::Arguments) {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        $crate::_printdebug(core::format_args!($($arg)*));
+        $crate::macros::_printdebug(core::format_args!($($arg)*));
     };
 }
 
 #[macro_export]
 macro_rules! println {
     () => {
-        $crate::print!("\r\n");
+        $crate::macros::print!("\r\n");
     };
     ($($arg:tt)*) => {
-        $crate::_printdebug(core::format_args!($($arg)*));
-        $crate::_printdebug(core::format_args!("\r\n"));
+        $crate::macros::_printdebug(core::format_args!($($arg)*));
+        $crate::macros::_printdebug(core::format_args!("\r\n"));
     };
 }
 

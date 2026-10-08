@@ -9,17 +9,17 @@ pub mod common {
 }
 
 pub mod kernel {
-    use super::common::*;
+    // use super::common::*;
     include!("bindings/kernel.rs");
 }
 
 pub mod gskit {
-    use super::common::*;
+    // use super::common::*;
     include!("bindings/gskit.rs");
 }
 
 pub mod draw {
-    use super::common::*;
+    // use super::common::*;
     include!("bindings/draw.rs");
 }
 

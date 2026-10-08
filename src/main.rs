@@ -7,7 +7,8 @@
 extern crate ps2sdk_sys;
 
 extern crate alloc;
-use core::arch::breakpoint;
+
+// use core::arch::breakpoint;
 
 use alloc::boxed::Box;
 use bevy::prelude::*;
@@ -42,12 +43,12 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     println!("Setting up Bevy app...");
 
     // breakpoint();
-    
+
     let mut app = App::new()
         .add_plugins(platform::PlatformPlugin)
         .add_plugins(SharedPlugin)
         .run();
-        
+
     // app.run();
 
     // let mut world = bevy_ecs::world::World::new();
@@ -57,9 +58,9 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // schedule.add_systems(platform::cycle_background_color_system);
 
     println!("Bevy exited. Reason: {:?}", app);
-    
+
     loop {}
-    
+
     0
 }
 
@@ -70,7 +71,6 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 //     }
 // }
 
-
 pub struct SharedPlugin;
 
 impl Plugin for SharedPlugin {
@@ -80,7 +80,6 @@ impl Plugin for SharedPlugin {
         app.add_systems(Update, count_entities_system);
     }
 }
-
 
 const FOUR_MB: usize = 4 * 1024 * 1024;
 
@@ -103,7 +102,7 @@ impl Default for LargeDataBuffer {
 }
 
 fn allocate_too_much() -> Result<()> {
-    let buffers = vec![
+    let _buffers = [
         LargeDataBuffer::default(),
         LargeDataBuffer::default(),
         LargeDataBuffer::default(),
@@ -123,7 +122,7 @@ fn simple_allocation() {
 
 //
 
-fn shared_game_logic(mut commands: Commands) {
+fn shared_game_logic(_commands: Commands) {
     // commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
 }
 
@@ -134,9 +133,9 @@ pub fn count_entities_system(
 ) {
     let current_count = entities.iter().len();
 
-    if last_count.map_or(true, |prev| prev != current_count) {
+    if last_count.is_none_or(|prev| prev != current_count) {
         *last_count = Some(current_count);
-        
+
         let elapsed = time.elapsed_secs();
         println!("[{elapsed:.2}s] Total entities: {current_count}");
     }

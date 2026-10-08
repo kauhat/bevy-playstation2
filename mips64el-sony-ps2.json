@@ -33,17 +33,26 @@
   "late-link-args": {
     "gcc": [
       "-nodefaultlibs",
-      "-lm",
-      "-lgcc",
+      "-L$(PS2DEV)/gsKit/lib",
+      "-L$(PS2SDK)/ee/lib",
       "-Wl,--start-group",
-      "-lc",
+      "-lgskit",
+      "-ldmakit",
+      "-ldraw",
+      "-lgraph",
+      "-ldma",
+      "-lpad",
+      "-lpatches",
+      "-lkernel",
       "-lcdvd",
       "-lcglue",
-      "-lkernel",
-      "-latomic",
+      "-ldebug",
       "-lpthread",
       "-lpthreadglue",
-      "-ldebug",
+      "-lc",
+      "-lm",
+      "-lgcc",
+      "-latomic",
       "-Wl,--end-group"
     ]
   }

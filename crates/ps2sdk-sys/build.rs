@@ -35,8 +35,6 @@ fn main() {
     println!("cargo:rustc-link-lib=static=graph");
     println!("cargo:rustc-link-lib=static=dma");
     println!("cargo:rustc-link-lib=static=kernel");
-    println!("cargo:rustc-link-lib=static=sifrpc");
-    println!("cargo:rustc-link-lib=static=c");
 
     // Metadata for downstream dependents (bevy-ps2 root crate)
     println!("cargo:linkfile_path={linkfile}");

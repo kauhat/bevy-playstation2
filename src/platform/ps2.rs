@@ -3,7 +3,6 @@ use alloc::string::String;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
-use core::time::Duration;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
@@ -11,7 +10,8 @@ use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
-use ps2sdk_sys::*;
+use core::time::Duration;
+use ps2sdk_sys;
 
 extern crate alloc;
 
@@ -33,7 +33,7 @@ fn ps2_runner(mut app: App) -> AppExit {
         // Instant::set_elapsed(hardware_elapsed_time);
 
         app.update();
-        
+
         if let Some(exit) = app.should_exit() {
             return exit;
         }
@@ -93,7 +93,7 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
 fn panic(info: &PanicInfo) -> ! {
     unsafe {
         // Set background color to red.
-        ps2sdk_sys::scr_setbgcolor(0xFF0000FF);
+        ps2sdk_sys::common::scr_setbgcolor(0xFF0000FF);
     }
 
     println!("Panic: {}", info);
@@ -119,7 +119,7 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
     let mut stack_buffer: [c_uint; MAX_DEPTH] = [0; MAX_DEPTH];
 
     // Query the PS2SDK call stack tracer
-    unsafe { ps2sdk_sys::ps2GetStackTrace(stack_buffer.as_mut_ptr(), MAX_DEPTH as c_int) };
+    unsafe { ps2sdk_sys::common::ps2GetStackTrace(stack_buffer.as_mut_ptr(), MAX_DEPTH as c_int) };
 
     let count = MAX_DEPTH;
 
@@ -169,8 +169,8 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
 
 pub fn init() {
     unsafe {
-        ps2sdk_sys::InitDebug();
-        ps2sdk_sys::init_scr();
+        ps2sdk_sys::common::InitDebug();
+        ps2sdk_sys::common::init_scr();
     }
 
     println!("Init!");
@@ -231,7 +231,7 @@ pub fn init() {
 fn hello_world_system() {
     unsafe {
         // Set background color to blue.
-        ps2sdk_sys::scr_setbgcolor(0x0000FFFF);
+        ps2sdk_sys::common::scr_setbgcolor(0x0000FFFF);
     }
 }
 
@@ -266,10 +266,9 @@ fn cycle_background_color_system(mut hue: Local<f32>) {
 
     unsafe {
         // Set background color to red.
-        ps2sdk_sys::scr_setbgcolor(color);
+        ps2sdk_sys::common::scr_setbgcolor(color);
     }
 }
-
 
 //
 //
