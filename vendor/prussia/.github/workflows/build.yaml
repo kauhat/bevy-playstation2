@@ -1,0 +1,58 @@
+name: Build Prussia
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  actions: none
+  attestations: none
+  checks: none
+  contents: none
+  deployments: none
+  id-token:  none
+  issues: none
+  repository-projects: none
+  discussions: none
+  packages: none
+  pages: none
+  pull-requests: none
+  security-events: none
+  statuses: none
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      with:
+        persist-credentials: false
+
+    - name: Set up build env
+      id: build-env
+      uses: ./.github/actions/setup-build-env
+
+    - name: Set up PATH
+      env:
+        BINUTILS_LOC: ${{ steps.build-env.outputs.binutils-loc }}
+        CARGO_LOC: ${{ steps.build-env.outputs.cargo-loc }}
+      run: |
+        echo $BINUTILS_LOC >> $GITHUB_PATH
+        echo $CARGO_LOC >> $GITHUB_PATH
+
+    - name: Assemble ASM deps
+      working-directory: ./prussia_rt
+      run: |
+        ./rebuild-asm-lib.sh
+
+    - name: Build hello-rs
+      run: |
+        cargo build --release -p hello-rs
+
+    - name: Build biostation
+      run: |
+        cargo build --release -p biostation
