@@ -5,13 +5,23 @@
 #[cfg(target_vendor = "sony")]
 #[macro_use]
 extern crate ps2sdk_sys;
+
 extern crate alloc;
+use core::arch::breakpoint;
 
 use alloc::boxed::Box;
 use bevy::prelude::*;
-use core::arch::breakpoint;
+use bevy::time::TimePlugin;
 
 mod platform;
+
+#[cfg(not(target_vendor = "sony"))]
+fn main() {
+    App::new()
+        .add_plugins(platform::PlatformPlugin)
+        .add_plugins(SharedPlugin)
+        .run();
+}
 
 #[cfg(target_vendor = "sony")]
 #[unsafe(no_mangle)]
@@ -32,10 +42,10 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     println!("Setting up Bevy app...");
 
     // breakpoint();
-
+    
     let mut app = App::new()
         .add_plugins(platform::PlatformPlugin)
-        .add_systems(Update, shared_game_logic)
+        .add_plugins(SharedPlugin)
         .run();
         
     // app.run();
@@ -60,13 +70,17 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 //     }
 // }
 
-#[cfg(not(target_vendor = "sony"))]
-fn main() {
-    App::new()
-        .add_plugins(platform::PlatformPlugin)
-        .add_systems(Update, shared_game_logic)
-        .run();
+
+pub struct SharedPlugin;
+
+impl Plugin for SharedPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(TimePlugin);
+        app.add_systems(Update, shared_game_logic);
+        app.add_systems(Update, count_entities_system);
+    }
 }
+
 
 const FOUR_MB: usize = 4 * 1024 * 1024;
 
@@ -88,10 +102,6 @@ impl Default for LargeDataBuffer {
     }
 }
 
-fn shared_game_logic(mut commands: Commands) {
-    // commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
-}
-
 fn allocate_too_much() -> Result<()> {
     let buffers = vec![
         LargeDataBuffer::default(),
@@ -109,4 +119,25 @@ fn simple_allocation() {
 
     assert_eq!(*heap_value_1, 41);
     assert_eq!(*heap_value_2, 13);
+}
+
+//
+
+fn shared_game_logic(mut commands: Commands) {
+    // commands.spawn((Name::new("LargeBufferEntity"), LargeDataBuffer::default()));
+}
+
+pub fn count_entities_system(
+    entities: Query<Entity>,
+    mut last_count: Local<Option<usize>>,
+    time: Res<Time>,
+) {
+    let current_count = entities.iter().len();
+
+    if last_count.map_or(true, |prev| prev != current_count) {
+        *last_count = Some(current_count);
+        
+        let elapsed = time.elapsed_secs();
+        println!("[{elapsed:.2}s] Total entities: {current_count}");
+    }
 }
