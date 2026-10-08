@@ -54,21 +54,33 @@ debug: build-ps2
     pcsx2-qt -batch -debugger -earlyconsolelog -elf "$(realpath {{ ELF_PATH }})";
 
 # PS2SDK...
+ps2_sys_dir := "./crates/ps2sdk-sys"
+ps2_includes := "-I$PS2DEV/ee/mips64r5900el-ps2-elf/include -I$PS2DEV/ps2sdk/common/include -I$PS2DEV/ps2sdk/ee/include -I$PS2DEV/ps2sdk/iop/include -I$PS2DEV/ee/include -I$PS2DEV/gsKit/include -I$PS2DEV/iop/include"
+bindgen_flags := "--use-core --no-layout-tests"
+clang_flags := "-D_EE -target mips64el-unknown-elf"
+blocklist_types := "--blocklist-type u8 --blocklist-type u16 --blocklist-type u32 --blocklist-type u64 --blocklist-type u128 --blocklist-type qword --blocklist-type vu8 --blocklist-type vu16 --blocklist-type vu32 --blocklist-type vu64 --blocklist-type vu128"
+
 ps2sdk-bindings:
-    bindgen ./crates/ps2sdk-sys/wrapper.h \
-        -o ./crates/ps2sdk-sys/src/bindings.rs \
-        --use-core \
-        --no-layout-tests \
-        -- \
-        -D_EE \
-        -target mips64el-unknown-elf \
-        -I$PS2DEV/ee/mips64r5900el-ps2-elf/include \
-        -I$PS2DEV/ps2sdk/common/include \
-        -I$PS2DEV/ps2sdk/ee/include \
-        -I$PS2DEV/ps2sdk/iop/include \
-        -I$PS2DEV/ee/include \
-        -I$PS2DEV/gsKit/include \
-        -I$PS2DEV/iop/include
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    mkdir -p {{ ps2_sys_dir }}/src/bindings
+
+    echo "Generating common bindings..."
+    bindgen {{ ps2_sys_dir }}/wrappers/common.h \
+        -o {{ ps2_sys_dir }}/src/bindings/common.rs \
+        {{ bindgen_flags }} -- \
+        {{ clang_flags }} {{ ps2_includes }}
+
+    modules=("kernel" "gskit" "draw")
+
+    for module in "${modules[@]}"; do
+        echo "Generating ${module} bindings..."
+        bindgen "{{ ps2_sys_dir }}/wrappers/${module}.h" \
+            -o "{{ ps2_sys_dir }}/src/bindings/${module}.rs" \
+            {{ bindgen_flags }} {{ blocklist_types }} -- \
+            {{ clang_flags }} {{ ps2_includes }}
+    done
 
 # Prussia fork...
 prussia_branch := "master"

@@ -1,6 +1,5 @@
 use core::ffi::c_char;
 use core::fmt::{self, Write};
-use cstr_core::CString;
 
 #[doc(hidden)]
 pub fn _printdebug(args: core::fmt::Arguments) {
@@ -43,10 +42,11 @@ impl Write for LibcConsole {
             if i == BUF_LEN - 1 {
                 buf[i] = 0; // Null terminate
                 unsafe {
-                    // Use printf/scr_printf.
-                    // Note: puts() appends a newline automatically, which breaks chunking!
-                    crate::raw::printf(buf.as_ptr() as *const c_char);
-                    crate::raw::scr_printf(buf.as_ptr() as *const c_char);
+                    // Write to stdout
+                    crate::common::_print(buf.as_ptr() as *const c_char);
+
+                    // Write to screen
+                    crate::common::scr_printf(buf.as_ptr() as *const c_char);
                 }
                 i = 0;
             }
@@ -56,8 +56,8 @@ impl Write for LibcConsole {
         if i > 0 {
             buf[i] = 0; // Null terminate
             unsafe {
-                crate::raw::printf(buf.as_ptr() as *const c_char);
-                crate::raw::scr_printf(buf.as_ptr() as *const c_char);
+                crate::common::_print(buf.as_ptr() as *const c_char);
+                crate::common::scr_printf(buf.as_ptr() as *const c_char);
             }
         }
 
