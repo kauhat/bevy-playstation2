@@ -8,9 +8,9 @@ links = "ps2sdk"
 # libc = "0.2"
 cstr_core = "0.2.6"
 
-[lib]
-test = false
+# [lib]
+# test = false
 
 # [[test]]
-# name = "hardware"
+# name = "integration"
 # # harness = false

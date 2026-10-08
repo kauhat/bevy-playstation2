@@ -11,6 +11,12 @@ use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
 use core::ptr;
 
+// TODO: everything!!!
+
+#[macro_use]
+use ps2sdk;
+
+
 pub trait Testable {
     fn run(&self);
 }
@@ -20,18 +26,18 @@ where
     T: Fn(),
 {
     fn run(&self) {
-        crate::println!("test {} ... ", core::any::type_name::<T>());
+        println!("test {} ... ", core::any::type_name::<T>());
         self();
-        crate::println!("[ok]");
+        println!("[ok]");
     }
 }
 
 pub fn test_runner(tests: &[&dyn Testable]) {
-    crate::println!("Running {} tests", tests.len());
+    println!("Running {} tests", tests.len());
     for test in tests {
         test.run();
     }
-    crate::println!("TESTS FINISHED - ALL PASSED");
+    println!("TESTS FINISHED - ALL PASSED");
 
     // Exit loop or trigger PCSX2 shutdown via RPC/syscall
     loop {}
@@ -40,7 +46,7 @@ pub fn test_runner(tests: &[&dyn Testable]) {
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // platform::ps2::init();
-    crate::println!("Starting automated PS2 tests...");
+    println!("Starting automated PS2 tests...");
 
     // Cargo generates this function automatically based on #[test_case]
     test_main();
@@ -50,9 +56,9 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    crate::println!("[FAILED]");
-    crate::println!("Error: {}", info);
-    crate::println!("TESTS FINISHED - FAILED");
+    println!("[FAILED]");
+    println!("Error: {}", info);
+    println!("TESTS FINISHED - FAILED");
     loop {}
 }
 
