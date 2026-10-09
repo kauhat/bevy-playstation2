@@ -411,8 +411,6 @@ dependencies = [
  "prussia_intc",
  "prussia_rt",
  "ps2sdk-sys",
- "serde",
- "serde_core",
 ]
 
 [[package]]

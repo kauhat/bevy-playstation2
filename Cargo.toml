@@ -46,8 +46,8 @@ bevy_time = { version = "0.19.1", default-features = false }
 bevy_transform = { version = "0.19.1", default-features = false }
 # bevy_animation = { version = "0.19.1", default-features = false }
 
-serde = { version = "1.0", default-features = false, features = ["alloc"] }
-serde_core = { version = "1.0", default-features = false, features = ["alloc"] }
+# serde = { version = "1.0", default-features = false, features = ["alloc"] }
+# serde_core = { version = "1.0", default-features = false, features = ["alloc"] }
 
 # bevy_hierarchy = { version = "0.19.1", default-features = false }
 # spin = { version = "0.9", default-features = false, features = ["spin_mutex"] }

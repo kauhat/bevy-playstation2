@@ -3,30 +3,21 @@ use alloc::string::String;
 use bevy::prelude::*;
 // use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
-use alloc::format;
-use alloc::string::String;
-use bevy::prelude::*;
 use bevy::time::TimePlugin;
-use core::alloc::{GlobalAlloc, Layout};
+// use bevy::utils::{Duration, Instant};
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
-use core::cell::UnsafeCell;
-use core::ffi::{c_int, c_uint};
 use core::ffi::{c_int, c_uint};
 use core::marker::Sync;
-use core::marker::Sync;
-use core::panic::PanicInfo;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
-use core::prelude::rust_2024::global_allocator;
-use core::ptr;
 use core::ptr;
 use core::time::Duration;
-use core::time::Duration;
-use prussia_rt::cop0;
-use ps2sdk_sys;
+// use prussia_rt::cop0;
+use ps2sdk_sys::kernel;
 
 extern crate alloc;
+// extern crate prussia_rt;
 
 pub struct Ps2PlatformPlugin;
 
@@ -43,31 +34,31 @@ impl Plugin for Ps2PlatformPlugin {
 const EE_COP0_CLK_HZ: u64 = 294_912_000;
 
 fn ps2_runner(mut app: App) -> AppExit {
-    let mut last_count = cop0::count();
+    let mut last_count = unsafe { kernel::GetCop0(8) };
     let mut accumulated_ticks: u64 = 0;
 
     loop {
-        let current_count = cop0::count();
+        // Instant::set_elapsed(|| {
+        //     let current_count = unsafe { kernel::GetCop0(8) };
 
-        // Account for 32-bit hardware register overflow/wrapping
-        let elapsed_ticks = if current_count >= last_count {
-            (current_count - last_count) as u64
-        } else {
-            (u32::MAX as u64 - last_count as u64) + current_count as u64 + 1
-        };
+        //     // Account for 32-bit hardware register overflow/wrapping
+        //     let elapsed_ticks = if current_count >= last_count {
+        //         (current_count - last_count) as u64
+        //     } else {
+        //         (u32::MAX as u64 - last_count as u64) + current_count as u64 + 1
+        //     };
 
-        last_count = current_count;
-        accumulated_ticks += elapsed_ticks;
+        //     last_count = current_count;
+        //     accumulated_ticks += elapsed_ticks;
 
-        // Convert COP0 ticks to total elapsed time
-        // Duration = accumulated_ticks / EE_COP0_CLK_HZ
-        let total_nanos = (accumulated_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
-        let delta_nanos = (elapsed_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
+        //     // Convert COP0 ticks to total elapsed time
+        //     // Duration = accumulated_ticks / EE_COP0_CLK_HZ
+        //     let total_nanos = (accumulated_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
+        //     let delta_nanos = (elapsed_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
 
-        // Update Bevy's internal Time resource
-        if let Some(mut time) = app.world_mut().get_resource_mut::<Time>() {
-            time.advance_by(Duration::from_nanos(delta_nanos));
-        }
+        //     // 3. Return as a standard Duration
+        //     Duration::from_nanos(total_nanos as u64)
+        // });
 
         // Run schedule updates
         app.update();

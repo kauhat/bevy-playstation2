@@ -55,6 +55,12 @@ impl TimerCount {
         TimerCount(count)
     }
 
+    /// Get the contents of the counter field
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
+    }
+
     /// Write [Self] to the _CoP0.Count_ register (`$9`).
     pub fn store(self) {
         unsafe { _write_timercount(self.0) }

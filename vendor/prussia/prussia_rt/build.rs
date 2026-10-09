@@ -48,5 +48,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     println!("cargo:rustc-link-lib=static=prussia-rt");
 
+    // Expose metadata to downstream crates (e.g. root build.rs)
+    println!("cargo:link_search={}", out_dir.display());
+    println!(
+        "cargo:linkfile_path={}",
+        out_dir.join("linkfile.ld").display()
+    );
+
     Ok(())
 }
