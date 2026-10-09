@@ -81,9 +81,9 @@ impl Plugin for SharedPlugin {
             app.add_plugins(TransformPlugin);
         }
 
-        if !app.is_plugin_added::<AnimationPlugin>() {
-            app.add_plugins(AnimationPlugin);
-        }
+        // if !app.is_plugin_added::<AnimationPlugin>() {
+        //     app.add_plugins(AnimationPlugin);
+        // }
 
         app.add_systems(Update, shared_game_logic);
         app.add_systems(Update, count_entities_system);
