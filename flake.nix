@@ -86,7 +86,7 @@
         hash = "sha256-nHwekmfIXImbopFUlXQchmooo8FY+1xeSHj1UYtpdRA=";
       };
 
-      # TODO: Broken
+      # TODO: Broken, but not needed?
       ps2sdk = pkgs.stdenv.mkDerivation {
         pname = "ps2sdk";
         version = "2.0.0";
@@ -176,21 +176,29 @@
 
       craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-      runtimeLibs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
+    runtimeLibs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
         udev
         alsa-lib
-        vulkan-loader
         libxkbcommon
         wayland
         wayland-protocols
+        vulkan-loader
         libGL
         libX11
         libXcursor
         libXi
         libXrandr
+        libdisplay-info
+        llvmPackages.llvm
       ]);
+
+      # Symlink all runtime libraries into a single path containing /lib
+      runtimeLibsEnv = pkgs.symlinkJoin {
+        name = "bevy-runtime-libs";
+        paths = runtimeLibs;
+      };
     in {
-      inherit pkgs rustToolchain craneLib ps2dev ps2sdk runtimeLibs;
+      inherit pkgs rustToolchain craneLib ps2dev ps2sdk runtimeLibs runtimeLibsEnv;
     });
   in {
     formatter = forAllSystems (

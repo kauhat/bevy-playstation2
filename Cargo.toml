@@ -10,7 +10,7 @@ members = [
 ]
 
 [dependencies]
-cstr_core = "0.2.6"
+# cstr_core = "0.2.6"
 
 # # Shared dependencies...
 # bevy_ecs = { version = "0.19.1", default-features = false }
@@ -32,11 +32,19 @@ bevy_animation = { version = "0.19.1" }
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
 prussia_rt = { path = "vendor/prussia/prussia_rt" }
-bevy = { version = "0.19.1", default-features = false }
+
+bevy_app = { version = "0.19.1", default-features = false }
 bevy_ecs = { version = "0.19.1", default-features = false }
-#bevy_mesh = { version = "0.19.1", default-features = false }
-bevy_color = { version = "0.19.1", default-features = false }
+bevy_time = { version = "0.19.1", default-features = false }
+bevy_transform = { version = "0.19.1", default-features = false }
+# bevy_hierarchy = { version = "0.19.1", default-features = false }
 bevy_animation = { version = "0.19.1", default-features = false }
+bevy_color = { version = "0.19.1", default-features = false }
+
+# Force critical ecosystem crates into no_std mode
+spin = { version = "0.9", default-features = false, features = ["spin_mutex"] }
+indexmap = { version = "2", default-features = false }
+foldhash = { version = "0.1", default-features = false }
 
 [profile.dev]
 panic = "abort"

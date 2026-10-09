@@ -1,3 +1,5 @@
+set shell := ["bash", "-uc"]
+
 # Default target JSON specification file
 TARGET := "mips64el-sony-ps2.json"
 ELF_PATH := "target/mips64el-sony-ps2/debug/bevy-ps2"
@@ -18,7 +20,7 @@ build-iso: build-ps2
 
 # Run PC development version.
 run-pc:
-    cargo run
+    LD_LIBRARY_PATH="$(nix eval --raw .#runtimeLibsEnv)/lib:${LD_LIBRARY_PATH:-}" cargo run
 
 # Build and execute directly in PCSX2.
 run-elf: build-ps2

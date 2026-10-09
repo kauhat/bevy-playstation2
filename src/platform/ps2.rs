@@ -1,7 +1,7 @@
 use alloc::format;
 use alloc::string::String;
 use bevy::prelude::*;
-use bevy::time::TimePlugin;
+// use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
@@ -11,6 +11,19 @@ use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use core::time::Duration;
+use alloc::format;
+use alloc::string::String;
+use bevy::prelude::*;
+use bevy::time::TimePlugin;
+use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
+use core::ffi::{c_int, c_uint};
+use core::marker::Sync;
+use core::panic::PanicInfo;
+use core::prelude::rust_2024::global_allocator;
+use core::ptr;
+use core::time::Duration;
+use prussia_rt::cop0;
 use ps2sdk_sys;
 
 extern crate alloc;
@@ -21,17 +34,43 @@ impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
         app.set_runner(ps2_runner);
         // app.add_systems(Startup, init)
-        // app.add_plugins(TimePlugin)
+        app.add_systems(Startup, hello_world_system);
+        app.add_systems(Update, cycle_background_color_system);
+
     }
 }
 
+/// Emotion Engine CPU COP0 Clock frequency (294.912 MHz)
+const EE_COP0_CLK_HZ: u64 = 294_912_000;
+
 fn ps2_runner(mut app: App) -> AppExit {
+    let mut last_count = cop0::count();
+    let mut accumulated_ticks: u64 = 0;
+
     loop {
-        println!("In main loop");
+        let current_count = cop0::count();
 
-        // TODO: clock!
-        // Instant::set_elapsed(hardware_elapsed_time);
+        // Account for 32-bit hardware register overflow/wrapping
+        let elapsed_ticks = if current_count >= last_count {
+            (current_count - last_count) as u64
+        } else {
+            (u32::MAX as u64 - last_count as u64) + current_count as u64 + 1
+        };
 
+        last_count = current_count;
+        accumulated_ticks += elapsed_ticks;
+
+        // Convert COP0 ticks to total elapsed time
+        // Duration = accumulated_ticks / EE_COP0_CLK_HZ
+        let total_nanos = (accumulated_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
+        let delta_nanos = (elapsed_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
+
+        // Update Bevy's internal Time resource
+        if let Some(mut time) = app.world_mut().get_resource_mut::<Time>() {
+            time.advance_by(Duration::from_nanos(delta_nanos));
+        }
+
+        // Run schedule updates
         app.update();
 
         if let Some(exit) = app.should_exit() {
