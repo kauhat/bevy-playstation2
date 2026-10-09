@@ -6,7 +6,10 @@ edition = "2024"
 [workspace]
 members = [
     "crates/ps2sdk-sys",
-    "vendor/prussia/prussia_rt"
+    "vendor/prussia/prussia_debug",
+    "vendor/prussia/prussia_dma",
+    "vendor/prussia/prussia_intc",
+    "vendor/prussia/prussia_rt",
 ]
 
 [dependencies]
@@ -31,6 +34,8 @@ bevy_animation = { version = "0.19.1" }
 # PS2 host...
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
+prussia_dma = { path = "vendor/prussia/prussia_dma" }
+prussia_intc = { path = "vendor/prussia/prussia_intc" }
 prussia_rt = { path = "vendor/prussia/prussia_rt" }
 
 bevy_app = { version = "0.19.1", default-features = false }

@@ -3,25 +3,25 @@ use alloc::string::String;
 use bevy::prelude::*;
 // use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
-use core::alloc::{GlobalAlloc, Layout};
-use core::cell::UnsafeCell;
-use core::ffi::{c_int, c_uint};
-use core::marker::Sync;
-use core::panic::PanicInfo;
-use core::prelude::rust_2024::global_allocator;
-use core::ptr;
-use core::time::Duration;
 use alloc::format;
 use alloc::string::String;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
 use core::alloc::{GlobalAlloc, Layout};
+use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
+use core::ffi::{c_int, c_uint};
+use core::marker::Sync;
 use core::marker::Sync;
 use core::panic::PanicInfo;
+use core::panic::PanicInfo;
+use core::prelude::rust_2024::global_allocator;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
+use core::ptr;
+use core::time::Duration;
 use core::time::Duration;
 use prussia_rt::cop0;
 use ps2sdk_sys;
@@ -36,7 +36,6 @@ impl Plugin for Ps2PlatformPlugin {
         // app.add_systems(Startup, init)
         app.add_systems(Startup, hello_world_system);
         app.add_systems(Update, cycle_background_color_system);
-
     }
 }
 

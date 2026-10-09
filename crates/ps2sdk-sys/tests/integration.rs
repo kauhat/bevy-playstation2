@@ -16,7 +16,6 @@ use core::ptr;
 #[macro_use]
 use ps2sdk;
 
-
 pub trait Testable {
     fn run(&self);
 }

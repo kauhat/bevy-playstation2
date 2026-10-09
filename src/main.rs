@@ -19,7 +19,7 @@ mod platform;
 #[cfg(not(target_vendor = "sony"))]
 fn main() {
     App::new()
-    .add_plugins(platform::PlatformPlugin)
+        .add_plugins(platform::PlatformPlugin)
         .add_plugins(SharedPlugin)
         .run();
 }
@@ -37,13 +37,13 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     // (|| allocate_too_much())().unwrap_or_else(|_err: String| {
     //     println!("Failed to allocate that much.");
     // });
-    
+
     println!("Setting up Bevy app...");
 
     // breakpoint();
 
     let mut app = App::new()
-    .add_plugins(platform::PlatformPlugin)
+        .add_plugins(platform::PlatformPlugin)
         .add_plugins(SharedPlugin)
         .run();
 
@@ -84,7 +84,7 @@ impl Plugin for SharedPlugin {
         if !app.is_plugin_added::<AnimationPlugin>() {
             app.add_plugins(AnimationPlugin);
         }
-        
+
         app.add_systems(Update, shared_game_logic);
         app.add_systems(Update, count_entities_system);
     }
