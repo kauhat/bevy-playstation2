@@ -4,7 +4,9 @@ use bevy::prelude::*;
 // use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
 use bevy::time::TimePlugin;
-// use bevy::utils::{Duration, Instant};
+use bevy::platform::time::{Instant};
+use core::sync::atomic::{AtomicU32, Ordering};
+use bevy::time::{Time, Real, Virtual};
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
@@ -33,32 +35,30 @@ impl Plugin for Ps2PlatformPlugin {
 /// Emotion Engine CPU COP0 Clock frequency (294.912 MHz)
 const EE_COP0_CLK_HZ: u64 = 294_912_000;
 
+
+static LAST_COUNT: AtomicU32 = AtomicU32::new(0);
+static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if needed
+
+fn get_ps2_elapsed() -> Duration {
+    let current_count = unsafe { kernel::GetCop0(8) }; // or 9 for Count
+    
+    // Example overflow handling logic (if you were doing this)
+    let last = LAST_COUNT.load(Ordering::Relaxed);
+    let diff = current_count.wrapping_sub(last);
+    LAST_COUNT.store(current_count, Ordering::Relaxed);
+    
+    let total_ticks = ACCUMULATED_TICKS.fetch_add(diff, Ordering::Relaxed) + diff;
+    
+    let total_nanos = (total_ticks as u64 * 1_000_000_000) / EE_COP0_CLK_HZ as u64;
+    
+    Duration::from_nanos(total_nanos)
+}
+
 fn ps2_runner(mut app: App) -> AppExit {
-    let mut last_count = unsafe { kernel::GetCop0(8) };
-    let mut accumulated_ticks: u64 = 0;
-
     loop {
-        // Instant::set_elapsed(|| {
-        //     let current_count = unsafe { kernel::GetCop0(8) };
-
-        //     // Account for 32-bit hardware register overflow/wrapping
-        //     let elapsed_ticks = if current_count >= last_count {
-        //         (current_count - last_count) as u64
-        //     } else {
-        //         (u32::MAX as u64 - last_count as u64) + current_count as u64 + 1
-        //     };
-
-        //     last_count = current_count;
-        //     accumulated_ticks += elapsed_ticks;
-
-        //     // Convert COP0 ticks to total elapsed time
-        //     // Duration = accumulated_ticks / EE_COP0_CLK_HZ
-        //     let total_nanos = (accumulated_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
-        //     let delta_nanos = (elapsed_ticks * 1_000_000_000) / EE_COP0_CLK_HZ;
-
-        //     // 3. Return as a standard Duration
-        //     Duration::from_nanos(total_nanos as u64)
-        // });
+        unsafe {
+            Instant::set_elapsed(get_ps2_elapsed);
+        }
 
         // Run schedule updates
         app.update();

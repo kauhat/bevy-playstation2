@@ -13,6 +13,8 @@ extern crate alloc;
 use alloc::boxed::Box;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
+use bevy::platform::time::Instant;
+use core::time::Duration;
 
 mod platform;
 
@@ -41,6 +43,13 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     println!("Setting up Bevy app...");
 
     // breakpoint();
+
+    // Set initial clock...
+    unsafe {
+        Instant::set_elapsed(|| {
+            Duration::ZERO
+        });
+    }
 
     let mut app = App::new()
         .add_plugins(platform::PlatformPlugin)

@@ -17,20 +17,20 @@ cstr_core = "0.2.6"
 
 
 # # Shared dependencies...
-# bevy_ecs = { version = "0.19.1", default-features = false }
-#bevy_app = { version = "0.19.1", default-features = false }
-# bevy_math = { version = "0.19.1", default-features = false }
-# bevy_transform = { version = "0.19.1", default-features = false }
-#bevy_transform = { version = "0.19.1", default-features = false }
+# bevy_ecs = { version = "0.20", default-features = false }
+#bevy_app = { version = "0.20", default-features = false }
+# bevy_math = { version = "0.20", default-features = false }
+# bevy_transform = { version = "0.20", default-features = false }
+#bevy_transform = { version = "0.20", default-features = false }
 
 # PC host...
 [target.'cfg(not(target_vendor = "sony"))'.dependencies]
-bevy = { version = "0.19.1" } # Full default features for desktop iteration
-bevy_ecs = { version = "0.19.1" }
-bevy_color = { version = "0.19.1" }
-bevy_transform = { version = "0.19.1" }
-# bevy_animation = { version = "0.19.1" }
-#bevy_mesh = { version = "0.19.1" }
+bevy = { version = "0.20" } # Full default features for desktop iteration
+bevy_ecs = { version = "0.20" }
+bevy_color = { version = "0.20" }
+bevy_transform = { version = "0.20" }
+# bevy_animation = { version = "0.20" }
+#bevy_mesh = { version = "0.20" }
 
 # PS2 host...
 [target.'cfg(target_vendor = "sony")'.dependencies]
@@ -39,17 +39,17 @@ prussia_dma = { path = "vendor/prussia/prussia_dma" }
 prussia_intc = { path = "vendor/prussia/prussia_intc" }
 prussia_rt = { path = "vendor/prussia/prussia_rt" }
 
-bevy = { version = "0.19.1", default-features = false }
-bevy_ecs = { version = "0.19.1", default-features = false }
-bevy_color = { version = "0.19.1", default-features = false }
-bevy_time = { version = "0.19.1", default-features = false }
-bevy_transform = { version = "0.19.1", default-features = false }
-# bevy_animation = { version = "0.19.1", default-features = false }
+bevy = { version = "0.20", default-features = false }
+bevy_ecs = { version = "0.20", default-features = false }
+bevy_color = { version = "0.20", default-features = false }
+bevy_time = { version = "0.20", default-features = false }
+bevy_transform = { version = "0.20", default-features = false }
+# bevy_animation = { version = "0.20", default-features = false }
 
 # serde = { version = "1.0", default-features = false, features = ["alloc"] }
 # serde_core = { version = "1.0", default-features = false, features = ["alloc"] }
 
-# bevy_hierarchy = { version = "0.19.1", default-features = false }
+# bevy_hierarchy = { version = "0.20", default-features = false }
 # spin = { version = "0.9", default-features = false, features = ["spin_mutex"] }
 # indexmap = { version = "2", default-features = false }
 # foldhash = { version = "0.1", default-features = false }
