@@ -43,14 +43,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
     println!("Setting up Bevy app...");
 
     // breakpoint();
-
-    // Set initial clock...
-    unsafe {
-        Instant::set_elapsed(|| {
-            Duration::ZERO
-        });
-    }
-
+    
     let mut app = App::new()
         .add_plugins(platform::PlatformPlugin)
         .add_plugins(SharedPlugin)

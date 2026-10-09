@@ -4,6 +4,7 @@ use bevy::prelude::*;
 // use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
 use bevy::time::TimePlugin;
+use bevy_color::{Color, Hsva,ColorToPacked};
 use bevy::platform::time::{Instant};
 use core::sync::atomic::{AtomicU32, Ordering};
 use bevy::time::{Time, Real, Virtual};
@@ -17,6 +18,7 @@ use core::ptr;
 use core::time::Duration;
 // use prussia_rt::cop0;
 use ps2sdk_sys::kernel;
+use ps2sdk_sys::gskit;
 
 extern crate alloc;
 // extern crate prussia_rt;
@@ -29,12 +31,37 @@ impl Plugin for Ps2PlatformPlugin {
         // app.add_systems(Startup, init)
         app.add_systems(Startup, hello_world_system);
         app.add_systems(Update, cycle_background_color_system);
+    
+        app.insert_resource(BackgroundColor::default());
+    }
+}
+
+#[derive(Resource)]
+pub struct BackgroundColor(pub Color);
+
+impl BackgroundColor {
+    /// Converts the Bevy Color into the 64-bit integer format expected by gsKit
+    #[inline(always)]
+    pub fn to_gs_format(&self) -> u64 {
+        // to_u8_array() safely scales to 0-255 and handles clamping bounds automatically
+        let [r, g, b, _] = self.0.to_srgba().to_u8_array();
+        
+        let a = 0x80_u64; // Standard solid alpha for gsKit
+        
+        // Combine into a single 64-bit integer. 
+        // Upper 32 bits are left as 0, which represents Q = 0.0 (correct for a screen clear).
+        (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | (a << 24)
+    }
+}
+
+impl Default for BackgroundColor {
+    fn default() -> Self {
+        Self(Color::BLACK)
     }
 }
 
 /// Emotion Engine CPU COP0 Clock frequency (294.912 MHz)
 const EE_COP0_CLK_HZ: u64 = 294_912_000;
-
 
 static LAST_COUNT: AtomicU32 = AtomicU32::new(0);
 static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if needed
@@ -54,7 +81,34 @@ fn get_ps2_elapsed() -> Duration {
     Duration::from_nanos(total_nanos)
 }
 
+pub fn init() {
+    unsafe {
+        ps2sdk_sys::common::InitDebug();
+        ps2sdk_sys::common::init_scr();
+    }
+
+    // Set initial clock...
+    unsafe {
+        Instant::set_elapsed(|| {
+            Duration::ZERO
+        });
+    }
+
+    println!("Init!");
+    println!(
+        "Heap: {:?} Offset: {:?}",
+        ALLOCATOR.heap.get(),
+        ALLOCATOR.offset.get()
+    );
+}
+
 fn ps2_runner(mut app: App) -> AppExit {
+    let gs_global = unsafe {
+        let gs = gskit::gsKit_hires_init_global();
+        gskit::gsKit_init_screen(gs);
+        gs
+    };
+
     loop {
         unsafe {
             Instant::set_elapsed(get_ps2_elapsed);
@@ -62,6 +116,18 @@ fn ps2_runner(mut app: App) -> AppExit {
 
         // Run schedule updates
         app.update();
+
+        // 3. Fetch the latest background color computed by the app
+        let raw_color = app.world().resource::<BackgroundColor>().to_gs_format();
+
+        println!("{:?}", raw_color);
+
+        unsafe {
+            // 4. Clear the screen, queue the execution, and flip the frame buffer
+            gskit::gsKit_clear(gs_global, raw_color);
+            gskit::gsKit_queue_exec(gs_global);
+            gskit::gsKit_sync_flip(gs_global);
+        }
 
         if let Some(exit) = app.should_exit() {
             return exit;
@@ -167,96 +233,6 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
     backtrace_str
 }
 
-// Memory-Mapped IO addresses for the Emotion Engine / GS
-// const GS_PMODE: *mut u64 = 0x1200_0000 as *mut u64;
-// const GS_SMODE2: *mut u64 = 0x1200_0020 as *mut u64;
-// const GS_DISPFB2: *mut u64 = 0x1200_0090 as *mut u64;
-// const GS_DISPLAY2: *mut u64 = 0x1200_00A0 as *mut u64;
-// const GS_CSR: *mut u64 = 0x1200_1000 as *mut u64;
-// const GS_BGCOLOR: *mut u64 = 0x1200_00E0 as *mut u64;
-
-// #[unsafe(no_mangle)]
-// pub extern "C" fn __start() -> ! {
-//     init_gs();
-//     // println!("Hello, PS2 World!");
-
-//     let mut app = App::new();
-//     app.add_systems(Startup, hello_world_system);
-//     app.add_systems(Update, cycle_background_color_system);
-
-//     // Run Startup systems
-//     app.update();
-
-//     loop {
-//         // Wait for the CRT beam to reset (Lock to 60Hz NTSC)
-//         wait_vsync();
-
-//         // Run the Bevy Update schedule
-//         app.update();
-//     }
-// }
-
-pub fn init() {
-    unsafe {
-        ps2sdk_sys::common::InitDebug();
-        ps2sdk_sys::common::init_scr();
-    }
-
-    println!("Init!");
-    println!(
-        "Heap: {:?} Offset: {:?}",
-        ALLOCATOR.heap.get(),
-        ALLOCATOR.offset.get()
-    );
-}
-
-// pub fn wait_vsync() {
-//     unsafe {
-//         // Clear the VSync flag by writing 1 to bit 3
-//         GS_CSR.write_volatile(1 << 3);
-
-//         // Spin-lock until the hardware sets the VSync flag back to 1 (every ~16.6ms)
-//         while (GS_CSR.read_volatile() & (1 << 3)) == 0 {
-//             core::hint::spin_loop();
-//         }
-//     }
-// }
-
-// fn init_ps2_hardware() {
-//     unsafe {
-//         // Minimal GS initialization for NTSC display output
-//         core::ptr::write_volatile(0x1200_0020 as *mut u64, 0x02); // SMODE2
-//         core::ptr::write_volatile(0x1200_0000 as *mut u64, 0x66); // PMODE
-//     }
-// }
-
-// fn init_gs() {
-//     unsafe {
-//         // 1. Reset the Graphics Synthesizer (Write 1 to bit 9 of CSR)
-//         GS_CSR.write_volatile(1 << 9);
-
-//         // 2. Enable Read Circuit 1 & 2 in PMODE (Bits 0 and 1)
-//         // This tells the GS to actually output a visual signal to the screen.
-//         GS_PMODE.write_volatile(0x0000_0000_0000_0066);
-//     }
-// }
-
-// fn init_video() {
-//     unsafe {
-//         // 1. Set Video Mode to NTSC (Interlaced)
-//         GS_SMODE2.write_volatile(0x02);
-
-//         // 2. Configure Display Buffer 2 (Format: PSMCT32, Width: 10, Base: 0)
-//         GS_DISPFB2.write_volatile(0x0000_0000_0900_0000);
-
-//         // 3. Configure Display Area 2 (Magic numbers for standard 640x448 NTSC)
-//         GS_DISPLAY2.write_volatile(0x0009_4260_001A_09FF);
-
-//         // 4. Enable Read Circuit 1 & 2 to push pixels to the screen
-//         GS_PMODE.write_volatile(0x0000_0000_0000_0066);
-//     }
-// }
-
 fn hello_world_system() {
     unsafe {
         // Set background color to blue.
@@ -264,41 +240,19 @@ fn hello_world_system() {
     }
 }
 
-fn cycle_background_color_system(mut hue: Local<f32>) {
-    // Advance the hue one step per frame (0.01 ≈ full cycle every 1.7s @60fps)
-    *hue += 0.01;
-    if *hue >= 1.0 {
-        *hue -= 1.0;
+fn cycle_background_color_system(mut hue: Local<f32>, mut bg: ResMut<BackgroundColor>) {
+    // Advance hue (0.0 to 360.0 degrees for Bevy's Hsva)
+    *hue += 3.6; 
+    if *hue >= 360.0 {
+        *hue -= 360.0;
     }
 
-    // HSV -> RGB at full saturation/value
-    let h = *hue * 6.0;
-    let sector = (h as u32) % 6;
-    let f = h - (h as u32 as f32); // fractional part
-    let q = 1.0 - f;
-
-    let (r, g, b) = match sector {
-        0 => (1.0, f, 0.0),
-        1 => (q, 1.0, 0.0),
-        2 => (0.0, 1.0, f),
-        3 => (0.0, q, 1.0),
-        4 => (f, 0.0, 1.0),
-        _ => (1.0, 0.0, q),
-    };
-
-    // Scale to the GS BGCOLOR 6-bit channels:
-    //   B -> bits 16..22, G -> bits 8..14, R -> bits 0..6
-    let r6 = (r * 63.0) as u32 & 0x3F;
-    let g6 = (g * 63.0) as u32 & 0x3F;
-    let b6 = (b * 63.0) as u32 & 0x3F;
-    let color = (b6 << 16) | (g6 << 8) | r6;
-
-    unsafe {
-        // Set background color to red.
-        ps2sdk_sys::common::scr_setbgcolor(color);
-    }
+    // Let Bevy handle the HSV to RGB conversion internally
+    bg.0 = Color::from(Hsva::new(*hue, 1.0, 1.0, 1.0));
 }
 
-//
-//
-//
+/// Helper to pack 8-bit RGBA channels into the 64-bit format expected by gsKit
+#[inline(always)]
+fn gs_color(r: u8, g: u8, b: u8, a: u8) -> u64 {
+    (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | ((a as u64) << 24)
+}
