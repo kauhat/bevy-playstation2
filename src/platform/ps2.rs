@@ -43,14 +43,18 @@ impl BackgroundColor {
     /// Converts the Bevy Color into the 64-bit integer format expected by gsKit
     #[inline(always)]
     pub fn to_gs_format(&self) -> u64 {
-        // to_u8_array() safely scales to 0-255 and handles clamping bounds automatically
-        let [r, g, b, _] = self.0.to_srgba().to_u8_array();
+        let srgba = self.0.to_srgba();
+        
+        // 1. Clamp to [0.0, 1.0] to prevent math anomalies
+        // 2. Cast to u32 FIRST to trigger native PS2 float-to-word instructions
+        // 3. Upcast to u64 for bitwise packing
+        let r = (srgba.red.clamp(0.0, 1.0) * 255.0) as u32 as u64;
+        let g = (srgba.green.clamp(0.0, 1.0) * 255.0) as u32 as u64;
+        let b = (srgba.blue.clamp(0.0, 1.0) * 255.0) as u32 as u64;
         
         let a = 0x80_u64; // Standard solid alpha for gsKit
         
-        // Combine into a single 64-bit integer. 
-        // Upper 32 bits are left as 0, which represents Q = 0.0 (correct for a screen clear).
-        (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | (a << 24)
+        r | (g << 8) | (b << 16) | (a << 24)
     }
 }
 
@@ -120,7 +124,7 @@ fn ps2_runner(mut app: App) -> AppExit {
         // 3. Fetch the latest background color computed by the app
         let raw_color = app.world().resource::<BackgroundColor>().to_gs_format();
 
-        println!("{:?}", raw_color);
+        // println!("{:?}", raw_color);
 
         unsafe {
             // 4. Clear the screen, queue the execution, and flip the frame buffer
