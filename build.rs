@@ -10,8 +10,8 @@ fn main() {
         // Retrieve search paths from both ps2sdk-sys and prussia_rt
         let ps2sdk_link_search =
             env::var("DEP_PS2SDK_LINK_SEARCH").expect("DEP_PS2SDK_LINK_SEARCH is not set");
-        let prussia_link_search =
-            env::var("DEP_PRUSSIA_RT_LINK_SEARCH").expect("DEP_PRUSSIA_RT_LINK_SEARCH is not set");
+        // let prussia_link_search =
+        //     env::var("DEP_PRUSSIA_RT_LINK_SEARCH").expect("DEP_PRUSSIA_RT_LINK_SEARCH is not set");
 
         // Linker script selection: choose Prussia's linker script or PS2SDK's
         // Option A: Use Prussia's user-linkfile.ld
@@ -21,7 +21,7 @@ fn main() {
         let linkfile = env::var("DEP_PS2SDK_LINKFILE_PATH").unwrap();
 
         // Pass native search paths to the linker
-        println!("cargo:rustc-link-search=native={prussia_link_search}");
+        // println!("cargo:rustc-link-search=native={prussia_link_search}");
         println!("cargo:rustc-link-search=native={ps2sdk_link_search}");
 
         // FIX: Pass the static library as a raw argument to force it to the end of the command line
