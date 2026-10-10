@@ -82,7 +82,8 @@ fn setup_scene(
     mut commands: Commands,
     // mut meshes: ResMut<Assets<Mesh>>,
     // mut materials: ResMut<Assets<GameMaterial>>,
-) {let cube_locations = [
+) {
+    let cube_locations = [
         Vec3::new(0.0, 0.0, -5.0),
         Vec3::new(-4.0, 0.0, -9.0),
         Vec3::new(3.0, 0.0, -13.0),
@@ -92,10 +93,8 @@ fn setup_scene(
     for location in cube_locations.iter() {
         commands
             .spawn((
-
-        GameMesh(),
-               Transform::from_translation(*location),
-                Visibility::default(),
+                GameMesh(),
+                Transform::from_translation(*location),
             ))
             .insert(RotatingEntity);
     }
@@ -103,15 +102,13 @@ fn setup_scene(
     // Mock Light (acting purely as a transform point in space)
     commands.spawn((
         GameLight(),
-       Transform::from_xyz(2.0, 5.0, 2.0),
-        Visibility::default(),
+        Transform::from_xyz(2.0, 5.0, 2.0),
     ));
 
     // Mock Camera
     commands.spawn((
         GameCamera(),
-       Transform::from_xyz(0.0, 1.0, 0.0),
-        Visibility::default(),
+        Transform::from_xyz(0.0, 1.0, 0.0),
     ));
     // Note: If your custom material doesn't use lighting,
     // you don't need to spawn a PointLightBundle at all.

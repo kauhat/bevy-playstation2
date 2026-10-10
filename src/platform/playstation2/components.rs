@@ -1,3 +1,4 @@
+use bevy::prelude::Component;
 
 use crate::shared::{BackgroundColor, GameCamera, GameMesh};
 

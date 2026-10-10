@@ -2,11 +2,10 @@
 
 use alloc::format;
 use alloc::string::String;
-use bevy::prelude::*;
-// use bevy::time::TimePlugin;
-// use bevy::utils::Instant;
-use bevy::color::{Color, ColorToPacked, Hsva};
+use bevy::app::{MinimalPlugins, ScheduleRunnerPlugin};
+use bevy::color::{Color, ColorToComponents, ColorToPacked, Hsva};
 use bevy::platform::time::Instant;
+use bevy::prelude::*;
 use bevy::time::TimePlugin;
 use bevy::time::{Real, Time, Virtual};
 use core::alloc::{GlobalAlloc, Layout};
@@ -14,19 +13,17 @@ use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
 use core::marker::Sync;
 use core::panic::PanicInfo;
-use core::prelude::rust_2024::global_allocator;
 use core::ptr;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
 
+use ps2sdk_sys::gskit;
+use ps2sdk_sys::gskit::GSGLOBAL;
+use ps2sdk_sys::kernel;
+
 use crate::shared::{BackgroundColor, GameCamera, GameMesh};
 
-// use prussia_rt::cop0;
-// use ps2sdk_sys::kernel;
-use ps2sdk_sys::gskit;
-
 extern crate alloc;
-extern crate prussia_rt;
 
 mod components;
 pub use components::*;
@@ -60,9 +57,8 @@ impl Plugin for Ps2PlatformPlugin {
             Duration::from_secs_f64(1.0 / 60.0),
         )));
 
-        // app.add_systems(Startup, init)
-        app.add_systems(Startup, hello_world_system);
-        app.add_systems(Update, render_system);
+        // NOTE: `hello_world_system` / `render_system` are not defined anywhere
+        // in the crate, so they are no longer registered here.
         app.add_systems(Update, (attach_ps2_camera, attach_ps2_mesh));
         app.add_systems(
             Last,
@@ -259,11 +255,10 @@ fn attach_ps2_mesh(
 }
 
 fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
-    let raw_color = Ps2Color::from(*bg.0);
+    let raw_color = Ps2Color::from(bg.0);
 
     unsafe {
-        gsKit_clear(gs.0, raw_color);
-        gskit::gsKit_clear(gs_global, );
+        gskit::gsKit_clear(gs.0, raw_color.0);
     }
 }
 
@@ -275,12 +270,12 @@ fn draw_meshes_system(query: Query<(&Transform, &Ps2Mesh)>) {
 
 fn flip_display_system(gs: Res<GsContext>) {
     unsafe {
-        gsKit_queue_exec(gs.0);
-        gsKit_sync_flip(gs.0);
+        gskit::gsKit_queue_exec(gs.0);
+        gskit::gsKit_sync_flip(gs.0);
     }
 }
 
-pub Ps2Color(pub u64);
+pub struct Ps2Color(pub u64);
 
 /// Converts the Bevy Color into the 64-bit integer format expected by gsKit
 impl From<Color> for Ps2Color {
@@ -297,7 +292,7 @@ impl From<Color> for Ps2Color {
 
         let a = 0x80_u64; // Standard solid alpha for gsKit
 
-        r | (g << 8) | (b << 16) | (a << 24)
+        Self(r | (g << 8) | (b << 16) | (a << 24))
     }
 }
 
