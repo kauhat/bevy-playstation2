@@ -469,6 +469,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_ecs",
+ "cfg-if",
  "cstr_core",
  "linked_list_allocator",
  "prussia_bios",
