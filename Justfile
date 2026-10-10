@@ -34,7 +34,7 @@ ps2-run-elf: ps2-build
         exit 1; \
     fi
 
-    @echo "Launching {{ PS2_ELF_PATH }} in PCSX2..."
+    echo "Launching {{ PS2_ELF_PATH }} in PCSX2..."
 
     pcsx2-qt -batch -earlyconsolelog -elf "$(realpath {{ PS2_ELF_PATH }})";
 

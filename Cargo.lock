@@ -472,11 +472,6 @@ dependencies = [
  "cfg-if",
  "cstr_core",
  "linked_list_allocator",
- "prussia_bios",
- "prussia_debug",
- "prussia_dma",
- "prussia_intc",
- "prussia_rt",
  "ps2sdk-sys",
 ]
 

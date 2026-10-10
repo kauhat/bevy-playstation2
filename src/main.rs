@@ -31,8 +31,8 @@ use core::time::Duration;
 // MaterialMeshBundle is used for any custom 3D material
 // use bevy::pbr::MaterialMeshBundle;
 
-mod shared;
 mod platform;
+mod shared;
 
 //
 // PC...
@@ -70,7 +70,6 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     0
 }
-
 
 //
 //

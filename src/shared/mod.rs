@@ -37,7 +37,6 @@ impl Default for BackgroundColor {
     }
 }
 
-
 pub struct SharedPlugin;
 
 impl Plugin for SharedPlugin {
@@ -56,7 +55,14 @@ impl Plugin for SharedPlugin {
 
         app.insert_resource(BackgroundColor::default());
         app.add_systems(Startup, setup_scene);
-        app.add_systems(Update, (rotate_entities, count_entities, cycle_background_color_system));
+        app.add_systems(
+            Update,
+            (
+                rotate_entities,
+                count_entities,
+                cycle_background_color_system,
+            ),
+        );
 
         // app.init_asset::<Mesh>();
         // app.init_asset::<GameMaterial>();
@@ -92,24 +98,15 @@ fn setup_scene(
 
     for location in cube_locations.iter() {
         commands
-            .spawn((
-                GameMesh(),
-                Transform::from_translation(*location),
-            ))
+            .spawn((GameMesh(), Transform::from_translation(*location)))
             .insert(RotatingEntity);
     }
 
     // Mock Light (acting purely as a transform point in space)
-    commands.spawn((
-        GameLight(),
-        Transform::from_xyz(2.0, 5.0, 2.0),
-    ));
+    commands.spawn((GameLight(), Transform::from_xyz(2.0, 5.0, 2.0)));
 
     // Mock Camera
-    commands.spawn((
-        GameCamera(),
-        Transform::from_xyz(0.0, 1.0, 0.0),
-    ));
+    commands.spawn((GameCamera(), Transform::from_xyz(0.0, 1.0, 0.0)));
     // Note: If your custom material doesn't use lighting,
     // you don't need to spawn a PointLightBundle at all.
 }

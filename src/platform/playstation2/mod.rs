@@ -2,7 +2,8 @@
 
 use alloc::format;
 use alloc::string::String;
-use bevy::app::{MinimalPlugins, ScheduleRunnerPlugin};
+use bevy::MinimalPlugins;
+use bevy::app::ScheduleRunnerPlugin;
 use bevy::color::{Color, ColorToComponents, ColorToPacked, Hsva};
 use bevy::platform::time::Instant;
 use bevy::prelude::*;
@@ -235,20 +236,14 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
 }
 
 #[cfg(target_vendor = "sony")]
-fn attach_ps2_camera(
-    mut commands: Commands,
-    query: Query<Entity, Added<GameCamera>>,
-) {
+fn attach_ps2_camera(mut commands: Commands, query: Query<Entity, Added<GameCamera>>) {
     for entity in query.iter() {
         commands.entity(entity).insert(Ps2Camera::default());
     }
 }
 
 #[cfg(target_vendor = "sony")]
-fn attach_ps2_mesh(
-    mut commands: Commands,
-    query: Query<Entity, Added<GameMesh>>,
-) {
+fn attach_ps2_mesh(mut commands: Commands, query: Query<Entity, Added<GameMesh>>) {
     for entity in query.iter() {
         commands.entity(entity).insert(Ps2Mesh {});
     }

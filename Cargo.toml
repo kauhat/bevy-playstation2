@@ -39,11 +39,11 @@ bevy = { version = "0.20" } # Full default features for desktop iteration
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
 
-prussia_bios = { path = "vendor/prussia/prussia_bios" }
-prussia_debug = { path = "vendor/prussia/prussia_debug" }
-prussia_dma = { path = "vendor/prussia/prussia_dma" }
-prussia_intc = { path = "vendor/prussia/prussia_intc" }
-prussia_rt = { path = "vendor/prussia/prussia_rt" }
+# prussia_bios = { path = "vendor/prussia/prussia_bios" }
+# prussia_debug = { path = "vendor/prussia/prussia_debug" }
+# prussia_dma = { path = "vendor/prussia/prussia_dma" }
+# prussia_intc = { path = "vendor/prussia/prussia_intc" }
+# prussia_rt = { path = "vendor/prussia/prussia_rt" }
 
 bevy = { version = "0.20", default-features = false, features = ["default_no_std"] }
 bevy_ecs = { version = "0.20", default-features = false }
