@@ -113,7 +113,7 @@ pub fn count_entities(
     entities: Query<Entity>,
     mut last_count: Local<Option<usize>>,
     time: Res<Time>,
-    mut timers: ResMut<DebugTimers>
+    mut timers: ResMut<DebugTimers>,
 ) {
     timers.message_timer.tick(time.delta());
 

@@ -152,7 +152,6 @@ fn get_ps2_elapsed() -> Duration {
     Duration::from_nanos(total_nanos)
 }
 
-
 fn ps2_runner(mut app: App) -> AppExit {
     let gs_global = unsafe {
         let gs = gskit::gsKit_hires_init_global();
