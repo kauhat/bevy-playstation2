@@ -1,15 +1,14 @@
-use bevy::{diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, ecs::{
-    component::Component,
-    entity::Entity,
-    query::With,
-    schedule::SystemSet,
-    system::{Commands, Local, Query, Res, ResMut},
-    world::World,
-}};
-use bevy::platform::time::Instant;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
-use core::time::Duration;
+use bevy::{
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    ecs::{
+        component::Component,
+        entity::Entity,
+        query::With,
+        system::{Commands, Local, Query, Res, ResMut},
+    },
+};
 
 #[derive(Component)]
 pub struct GameCamera();
@@ -88,10 +87,12 @@ pub fn count_entities(
     }
 }
 
-fn print_fps(
-    diagnostics: Res<DiagnosticsStore>,
-) {
-    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) {
+// TODO: not displaying
+fn print_fps(diagnostics: Res<DiagnosticsStore>) {
+    if let Some(fps) = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|fps| fps.smoothed())
+    {
         println!("FPS: {}", fps);
     }
 }

@@ -7,32 +7,11 @@
 #[macro_use]
 extern crate ps2sdk_sys;
 
-#[cfg(target_vendor = "sony")]
-extern crate alloc;
-
-// use core::arch::breakpoint;
-
-// use alloc::boxed::Box;
-
-use bevy::ecs::{
-    component::Component,
-    entity::Entity,
-    query::With,
-    schedule::SystemSet,
-    system::{Commands, Local, Query, Res, ResMut},
-    world::World,
-};
-use bevy::platform::time::Instant;
-use bevy::prelude::*;
-use bevy::time::TimePlugin;
-use core::time::Duration;
-// use bevy::core_pipeline::core_3d::Camera3dBundle;
-// use bevy::render::mesh::Mesh;
-// MaterialMeshBundle is used for any custom 3D material
-// use bevy::pbr::MaterialMeshBundle;
-
 mod platform;
 mod shared;
+
+use bevy::ecs::component::Component;
+use bevy::prelude::*;
 
 //
 // PC...
@@ -57,7 +36,8 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 
     println!("Setting up Bevy app...");
 
-    // breakpoint();
+    // do breakpoints work?
+    // core::arch::breakpoint();
 
     let mut app = App::new()
         .add_plugins(platform::PlatformPlugin)
@@ -75,7 +55,7 @@ pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
 //
 //
 
-// TODO: Test
+// TODO: Move these to tests or something.
 // try to allocate a large buffer to test the custom allocator
 // (|| allocate_too_much())().unwrap_or_else(|_err: String| {
 //     println!("Failed to allocate that much.");

@@ -46,7 +46,7 @@ impl Write for LibcConsole {
                     crate::common::_print(buf.as_ptr() as *const c_char);
 
                     // Write to screen
-                    crate::common::scr_printf(buf.as_ptr() as *const c_char);
+                    // crate::common::scr_printf(buf.as_ptr() as *const c_char);
                 }
                 i = 0;
             }
@@ -57,7 +57,7 @@ impl Write for LibcConsole {
             buf[i] = 0; // Null terminate
             unsafe {
                 crate::common::_print(buf.as_ptr() as *const c_char);
-                crate::common::scr_printf(buf.as_ptr() as *const c_char);
+                // crate::common::scr_printf(buf.as_ptr() as *const c_char);
             }
         }
 

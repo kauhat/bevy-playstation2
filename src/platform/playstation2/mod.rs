@@ -1,6 +1,3 @@
-// #![allow(unused)]
-
-use linked_list_allocator::LockedHeap;
 use alloc::format;
 use alloc::string::String;
 use bevy::MinimalPlugins;
@@ -19,7 +16,7 @@ use core::panic::PanicInfo;
 use core::ptr;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
-
+use linked_list_allocator::LockedHeap;
 use ps2sdk_sys::gskit;
 use ps2sdk_sys::gskit::GSGLOBAL;
 use ps2sdk_sys::kernel;
@@ -31,7 +28,6 @@ extern crate alloc;
 mod components;
 pub use components::*;
 
-
 // Reserve a static 16MB heap block inside the main RAM pool
 const HEAP_SIZE: usize = 1024 * 1024 * 16;
 
@@ -42,7 +38,7 @@ struct HeapBuffer([u8; HEAP_SIZE]);
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 static HEAP_MEMORY: HeapBuffer = HeapBuffer([0; HEAP_SIZE]);
 
-pub fn init_heap() {
+fn init_heap() {
     let heap_start = HEAP_MEMORY.0.as_ptr() as *mut u8;
     let heap_size = HEAP_SIZE;
     unsafe {
@@ -56,18 +52,12 @@ fn panic(info: &PanicInfo) -> ! {
     unsafe {
         // TODO: colors can be 32 bit as well?
         Ps2Color::from(Color::srgb(1.0, 0.0, 0.0));
-        
+
         // Set background color to red.
         ps2sdk_sys::common::scr_setbgcolor(0xFF0000FF);
     }
 
     println!("Panic: {}", info);
-
-    // println!("Panic!\nMessage: {:?}", info.message());
-
-    // if let Some(location) = info.location() {
-    //     println!("Location: {}:{}", location.file(), location.line());
-    // }
 
     // Fetch and print the 16 deepest frame addresses from PS2 memory
     let backtrace = get_ps2_backtrace::<16>();
@@ -78,7 +68,6 @@ fn panic(info: &PanicInfo) -> ! {
         core::hint::spin_loop();
     }
 }
-
 
 /// Holds the raw gsKit context handle for the Emotion Engine.
 #[derive(Resource)]
@@ -103,13 +92,11 @@ impl Plugin for Ps2PlatformPlugin {
         app.set_runner(ps2_runner);
 
         app.add_plugins(
-            MinimalPlugins.build()
-
+            MinimalPlugins.build(),
             // TaskPoolPlugin immediatly panics, disable for now. (mips2 fixed this????)
             // MinimalPlugins.build().disable::<TaskPoolPlugin>(),
         );
 
-        
         app.add_systems(Update, (attach_ps2_camera, attach_ps2_mesh));
 
         // Rendering...
@@ -131,6 +118,7 @@ const EE_COP0_CLK_HZ: u64 = 294_912_000;
 static LAST_COUNT: AtomicU32 = AtomicU32::new(0);
 static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if needed
 
+// TODO: Can use use prussia_rt instead?
 fn get_ps2_elapsed() -> Duration {
     let current_count = unsafe { kernel::GetCop0(8) }; // or 9 for Count
 
@@ -148,7 +136,6 @@ fn get_ps2_elapsed() -> Duration {
 
 // Move into plugin build function?
 pub fn init() {
-
     unsafe {
         ps2sdk_sys::common::InitDebug();
         ps2sdk_sys::common::init_scr();
@@ -183,7 +170,6 @@ fn ps2_runner(mut app: App) -> AppExit {
         }
     }
 }
-
 
 #[inline(always)]
 pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
