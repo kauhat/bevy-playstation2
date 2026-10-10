@@ -1,11 +1,14 @@
-#[cfg(not(target_vendor = "sony"))]
-mod pc;
-
-#[cfg(target_vendor = "sony")]
-pub mod ps2;
-
-#[cfg(target_vendor = "sony")]
-pub use ps2::Ps2PlatformPlugin as PlatformPlugin;
+// Export the target platform.
+pub use platform_impl::*;
 
 #[cfg(not(target_vendor = "sony"))]
-pub use pc::PcPlatformPlugin as PlatformPlugin;
+mod platform_impl {
+    pub mod pc;
+    pub use pc::PcPlatformPlugin as PlatformPlugin;
+}
+
+#[cfg(target_vendor = "sony")]
+mod platform_impl {
+    pub mod playstation2;
+    pub use playstation2::Ps2PlatformPlugin as PlatformPlugin;
+}

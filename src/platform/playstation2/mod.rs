@@ -1,13 +1,14 @@
+#![allow(unused)]
+
 use alloc::format;
 use alloc::string::String;
 use bevy::prelude::*;
 // use bevy::time::TimePlugin;
 // use bevy::utils::Instant;
+use bevy::color::{Color, ColorToPacked, Hsva};
+use bevy::platform::time::Instant;
 use bevy::time::TimePlugin;
-use bevy_color::{Color, Hsva,ColorToPacked};
-use bevy::platform::time::{Instant};
-use core::sync::atomic::{AtomicU32, Ordering};
-use bevy::time::{Time, Real, Virtual};
+use bevy::time::{Real, Time, Virtual};
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_uint};
@@ -15,13 +16,15 @@ use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::prelude::rust_2024::global_allocator;
 use core::ptr;
+use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
+
 // use prussia_rt::cop0;
-use ps2sdk_sys::kernel;
-use ps2sdk_sys::gskit;
+// use ps2sdk_sys::kernel;
+// use ps2sdk_sys::gskit;
 
 extern crate alloc;
-// extern crate prussia_rt;
+extern crate prussia_rt;
 
 pub struct Ps2PlatformPlugin;
 
@@ -31,7 +34,7 @@ impl Plugin for Ps2PlatformPlugin {
         // app.add_systems(Startup, init)
         app.add_systems(Startup, hello_world_system);
         app.add_systems(Update, cycle_background_color_system);
-    
+
         app.insert_resource(BackgroundColor::default());
     }
 }
@@ -44,16 +47,16 @@ impl BackgroundColor {
     #[inline(always)]
     pub fn to_gs_format(&self) -> u64 {
         let srgba = self.0.to_srgba();
-        
+
         // 1. Clamp to [0.0, 1.0] to prevent math anomalies
         // 2. Cast to u32 FIRST to trigger native PS2 float-to-word instructions
         // 3. Upcast to u64 for bitwise packing
         let r = (srgba.red.clamp(0.0, 1.0) * 255.0) as u32 as u64;
         let g = (srgba.green.clamp(0.0, 1.0) * 255.0) as u32 as u64;
         let b = (srgba.blue.clamp(0.0, 1.0) * 255.0) as u32 as u64;
-        
+
         let a = 0x80_u64; // Standard solid alpha for gsKit
-        
+
         r | (g << 8) | (b << 16) | (a << 24)
     }
 }
@@ -72,16 +75,16 @@ static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if nee
 
 fn get_ps2_elapsed() -> Duration {
     let current_count = unsafe { kernel::GetCop0(8) }; // or 9 for Count
-    
+
     // Example overflow handling logic (if you were doing this)
     let last = LAST_COUNT.load(Ordering::Relaxed);
     let diff = current_count.wrapping_sub(last);
     LAST_COUNT.store(current_count, Ordering::Relaxed);
-    
+
     let total_ticks = ACCUMULATED_TICKS.fetch_add(diff, Ordering::Relaxed) + diff;
-    
+
     let total_nanos = (total_ticks as u64 * 1_000_000_000) / EE_COP0_CLK_HZ as u64;
-    
+
     Duration::from_nanos(total_nanos)
 }
 
@@ -93,9 +96,7 @@ pub fn init() {
 
     // Set initial clock...
     unsafe {
-        Instant::set_elapsed(|| {
-            Duration::ZERO
-        });
+        Instant::set_elapsed(get_ps2_elapsed);
     }
 
     println!("Init!");
@@ -188,6 +189,7 @@ static ALLOCATOR: PS2StaticArena = PS2StaticArena {
     offset: UnsafeCell::new(0),
 };
 
+#[inline(never)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     unsafe {
@@ -246,7 +248,7 @@ fn hello_world_system() {
 
 fn cycle_background_color_system(mut hue: Local<f32>, mut bg: ResMut<BackgroundColor>) {
     // Advance hue (0.0 to 360.0 degrees for Bevy's Hsva)
-    *hue += 3.6; 
+    *hue += 3.6;
     if *hue >= 360.0 {
         *hue -= 360.0;
     }
