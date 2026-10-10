@@ -6,6 +6,7 @@ edition = "2024"
 [workspace]
 members = [
     "crates/ps2sdk-sys",
+    "vendor/prussia/prussia_bios",
     "vendor/prussia/prussia_debug",
     "vendor/prussia/prussia_dma",
     "vendor/prussia/prussia_intc",
@@ -36,13 +37,15 @@ bevy = { version = "0.20" } # Full default features for desktop iteration
 # PS2 host...
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
+
+prussia_bios = { path = "vendor/prussia/prussia_bios" }
+prussia_debug = { path = "vendor/prussia/prussia_debug" }
 prussia_dma = { path = "vendor/prussia/prussia_dma" }
 prussia_intc = { path = "vendor/prussia/prussia_intc" }
 prussia_rt = { path = "vendor/prussia/prussia_rt" }
 
 bevy = { version = "0.20", default-features = false, features = ["default_no_std"] }
 bevy_ecs = { version = "0.20", default-features = false }
-linked_list_allocator = "0.10.6"
 # bevy_color = { version = "0.20", default-features = false }
 # bevy_time = { version = "0.20", default-features = false }
 # bevy_transform = { version = "0.20", default-features = false }
@@ -53,9 +56,9 @@ linked_list_allocator = "0.10.6"
 # bevy_animation = { version = "0.20", default-features = false }
 # bevy_platform = { version = "0.20", default-features = false }
 
+linked_list_allocator = "0.10.6"
 # serde = { version = "1.0", default-features = false, features = ["alloc"] }
 # serde_core = { version = "1.0", default-features = false, features = ["alloc"] }
-
 # bevy_hierarchy = { version = "0.20", default-features = false }
 # spin = { version = "0.9", default-features = false, features = ["spin_mutex"] }
 # indexmap = { version = "2", default-features = false }
