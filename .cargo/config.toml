@@ -1,11 +1,9 @@
 [alias]
-build-ps2 = "build --target mips64el-sony-ps2.json"
-build-ps2-release = "build --target mips64el-sony-ps2.json --release"
-build-ps2-x32 = "build --target mipsel-sony-ps2.json"
+build-ps2 = "build --target mips64el-sony-ps2.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+build-ps2-release = "build --target mips64el-sony-ps2.json --release -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
+build-ps2-x32 = "build --target mipsel-sony-ps2.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem"
 
 [unstable]
-build-std = ["core", "alloc"]
-build-std-features = ["compiler-builtins-mem"]
 json-target-spec = true
 script = true
 
