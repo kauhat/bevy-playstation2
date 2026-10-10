@@ -69,6 +69,22 @@ fn panic(info: &PanicInfo) -> ! {
     }
 }
 
+// Move into plugin build function?
+pub fn init() {
+    unsafe {
+        // ps2sdk_sys::common::InitDebug();
+        ps2sdk_sys::common::init_scr();
+    }
+
+    // Set initial clock...
+    unsafe {
+        Instant::set_elapsed(get_ps2_elapsed);
+    }
+
+    println!("Init!");
+    init_heap()
+}
+
 /// Holds the raw gsKit context handle for the Emotion Engine.
 #[derive(Resource)]
 pub struct GsContext(pub *mut GSGLOBAL);
@@ -120,35 +136,22 @@ static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if nee
 
 // TODO: Can use use prussia_rt instead?
 fn get_ps2_elapsed() -> Duration {
-    let current_count = unsafe { kernel::GetCop0(8) }; // or 9 for Count
+    // Read the COP0 Count register (Register 9)
+    let current_count = unsafe { kernel::GetCop0(9) } as u64;
 
-    // Example overflow handling logic (if you were doing this)
-    let last = LAST_COUNT.load(Ordering::Relaxed);
-    let diff = current_count.wrapping_sub(last);
-    LAST_COUNT.store(current_count, Ordering::Relaxed);
+    let last = LAST_COUNT.swap(current_count as u32, Ordering::Relaxed) as u64;
 
-    let total_ticks = ACCUMULATED_TICKS.fetch_add(diff, Ordering::Relaxed) + diff;
+    // Calculate tick difference using wrapping math for 32-bit COP0 count
+    let diff = (current_count as u32).wrapping_sub(last as u32) as u64;
 
-    let total_nanos = (total_ticks as u64 * 1_000_000_000) / EE_COP0_CLK_HZ as u64;
+    let accumulated = ACCUMULATED_TICKS.fetch_add(diff as u32, Ordering::Relaxed) as u64 + diff;
+
+    // Perform math strictly in u64 space
+    let total_nanos = (accumulated * 1_000_000_000) / EE_COP0_CLK_HZ;
 
     Duration::from_nanos(total_nanos)
 }
 
-// Move into plugin build function?
-pub fn init() {
-    unsafe {
-        ps2sdk_sys::common::InitDebug();
-        ps2sdk_sys::common::init_scr();
-    }
-
-    // Set initial clock...
-    unsafe {
-        Instant::set_elapsed(get_ps2_elapsed);
-    }
-
-    println!("Init!");
-    init_heap()
-}
 
 fn ps2_runner(mut app: App) -> AppExit {
     let gs_global = unsafe {
@@ -251,9 +254,3 @@ impl From<Color> for Ps2Color {
         Self(r | (g << 8) | (b << 16) | (a << 24))
     }
 }
-
-// /// Helper to pack 8-bit RGBA channels into the 64-bit format expected by gsKit
-// #[inline(always)]
-// fn gs_color(r: u8, g: u8, b: u8, a: u8) -> u64 {
-//     (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | ((a as u64) << 24)
-// }
