@@ -1,19 +1,17 @@
-# [unstable]
-# build-std = ["core", "alloc"]
-# build-std-features = ["compiler-builtins-mem"]
-
 [alias]
-build-ps2 = "build --target mips64el-sony-ps2.json -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
-build-ps2-release = "build --target mips64el-sony-ps2.json --release -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
-build-ps2-x32 = "build --target mipsel-sony-ps2.json -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
-run-ps2 = "run --target mips64el-sony-ps2.json -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
-test-ps2 = "test --target mips64el-sony-ps2.json -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
-fix-ps2 = "fix --target mips64el-sony-ps2.json -Z script -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec"
+build-ps2 = "build --target mips64el-sony-ps2.json"
+build-ps2-release = "build --target mips64el-sony-ps2.json --release"
+build-ps2-x32 = "build --target mipsel-sony-ps2.json"
 
-[target.'cfg(target_vendor = "sony")'.dependencies]
+[unstable]
+build-std = ["core", "alloc"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true
+script = true
+
+[target.'cfg(target_vendor = "sony")']
 linker = "mips64r5900el-ps2-elf-gcc"
-
-runner = "cargo -Z script ./scripts/pcsx2-test-runner.rs"
+runner = "cargo ./scripts/pcsx2-test-runner.rs"
 
 rustflags = [
   # "-C", "target-feature=+mips3,+soft-float",
