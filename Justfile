@@ -69,6 +69,10 @@ ps2-run-iso: ps2-pack-iso
 
     pcsx2-qt -batch -earlyconsolelog "$(realpath {{ PS2_ISO_PATH }})";
 
+
+ps2-runner PATH=PS2_ELF_PATH: ps2-build
+    pcsx2-qt -batch -earlyconsolelog -elf "$(realpath {{ PATH }})"
+
 #
 # PC tasks...
 #

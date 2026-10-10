@@ -1,5 +1,4 @@
 #!/usr/bin/env cargo
-
 use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};

@@ -9,6 +9,7 @@ script = true
 
 [target.'cfg(target_vendor = "sony")']
 linker = "mips64r5900el-ps2-elf-gcc"
-runner = "cargo ./scripts/pcsx2-test-runner.rs"
+runner = "just ps2-runner"
+# runner = "./scripts/pcsx2-test-runner.rs"
 
 rustflags = []
