@@ -1,11 +1,11 @@
-use bevy::ecs::{
+use bevy::{diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, ecs::{
     component::Component,
     entity::Entity,
     query::With,
     schedule::SystemSet,
     system::{Commands, Local, Query, Res, ResMut},
     world::World,
-};
+}};
 use bevy::platform::time::Instant;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
@@ -45,6 +45,8 @@ impl Plugin for SharedPlugin {
             app.add_plugins(TimePlugin);
         }
 
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default());
+
         if !app.is_plugin_added::<TransformPlugin>() {
             app.add_plugins(TransformPlugin);
         }
@@ -64,6 +66,8 @@ impl Plugin for SharedPlugin {
             ),
         );
 
+        app.add_systems(Update, print_fps);
+
         // app.init_asset::<Mesh>();
         // app.init_asset::<GameMaterial>();
     }
@@ -81,6 +85,14 @@ pub fn count_entities(
 
         let elapsed = time.elapsed_secs();
         println!("[{elapsed:.2}s] Total entities: {current_count}");
+    }
+}
+
+fn print_fps(
+    diagnostics: Res<DiagnosticsStore>,
+) {
+    if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) {
+        println!("FPS: {}", fps);
     }
 }
 
@@ -125,5 +137,5 @@ fn cycle_background_color_system(mut hue: Local<f32>, mut bg: ResMut<BackgroundC
     }
 
     // Let Bevy handle the HSV to RGB conversion internally
-    bg.0 = Color::from(Hsva::new(*hue, 1.0, 1.0, 1.0));
+    bg.0 = Color::from(Hsva::new(*hue, 1.0, 0.2, 1.0));
 }

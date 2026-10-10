@@ -5,6 +5,7 @@ use alloc::string::String;
 use bevy::MinimalPlugins;
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::color::{Color, ColorToComponents, ColorToPacked, Hsva};
+use bevy::diagnostic::FrameCountPlugin;
 use bevy::platform::time::Instant;
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
@@ -53,10 +54,11 @@ impl Plugin for Ps2PlatformPlugin {
         app.insert_resource(GsContext(gs_global));
 
         app.set_runner(ps2_runner);
-        app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
-            // Run 60 times per second.
-            Duration::from_secs_f64(1.0 / 60.0),
-        )));
+
+        app.add_plugins(
+            // TaskPoolPlugin immediatly panics, disable for now.
+            MinimalPlugins.build().disable::<TaskPoolPlugin>(),
+        );
 
         // NOTE: `hello_world_system` / `render_system` are not defined anywhere
         // in the crate, so they are no longer registered here.
