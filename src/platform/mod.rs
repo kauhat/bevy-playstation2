@@ -1,33 +1,29 @@
 // Target-specific platform backends.
 //
-// NOTE: `pc` and `playstation2` must be declared directly in this file (not
-// inside an inline module) so that the compiler resolves them to
-// `src/platform/pc.rs` / `src/platform/playstation2.rs`. External module
-// declarations nested in an inline module get looked up one directory deeper
-// (e.g. `src/platform/platform_impl/pc.rs`), which does not exist here.
+// `cfg_if!` expands the selected branch's items directly into *this* module
+// (it does not create a nested inline module), so `pub mod pc;` and
+// `pub mod playstation2;` resolve relative to this file as
+// `src/platform/pc.rs` / `src/platform/playstation2.rs`. That avoids the
+// "one directory too deep" path that a plain nested `mod { ... }` would cause.
 
-//
-// PC...
-//
+cfg_if::cfg_if! {
+    if #[cfg(not(target_vendor = "sony"))] {
+        //
+        // PC...
+        //
 
-#[cfg(not(target_vendor = "sony"))]
-pub mod pc;
+        pub mod pc;
 
-#[cfg(not(target_vendor = "sony"))]
-pub use pc::*;
+        pub use pc::*;
+        pub use pc::PcPlatformPlugin as PlatformPlugin;
+    } else {
+        //
+        // PlayStation 2...
+        //
 
-#[cfg(not(target_vendor = "sony"))]
-pub use pc::PcPlatformPlugin as PlatformPlugin;
+        pub mod playstation2;
 
-//
-// PlayStation 2...
-//
-
-#[cfg(target_vendor = "sony")]
-pub mod playstation2;
-
-#[cfg(target_vendor = "sony")]
-pub use playstation2::*;
-
-#[cfg(target_vendor = "sony")]
-pub use playstation2::Ps2PlatformPlugin as PlatformPlugin;
+        pub use playstation2::*;
+        pub use playstation2::Ps2PlatformPlugin as PlatformPlugin;
+    }
+}
