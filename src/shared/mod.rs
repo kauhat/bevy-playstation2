@@ -12,15 +12,31 @@ use bevy::time::TimePlugin;
 use core::time::Duration;
 
 #[derive(Component)]
-pub struct GameCamera;
+pub struct GameCamera();
 
 #[derive(Component)]
-pub struct GameMesh;
+pub struct GameMesh();
+
+#[derive(Component)]
+pub struct GameLight();
 
 // #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct GameMaterial {
     pub color: Color,
 }
+
+#[derive(Component)]
+struct RotatingEntity; // Component to indicate entity should be rotated
+
+#[derive(Resource)]
+pub struct BackgroundColor(pub Color);
+
+impl Default for BackgroundColor {
+    fn default() -> Self {
+        Self(Color::BLACK)
+    }
+}
+
 
 pub struct SharedPlugin;
 
@@ -38,17 +54,14 @@ impl Plugin for SharedPlugin {
         //     app.add_plugins(AnimationPlugin);
         // }
 
+        app.insert_resource(BackgroundColor::default());
         app.add_systems(Startup, setup_scene);
-        app.add_systems(Update, rotate_entities);
-        app.add_systems(Update, count_entities);
+        app.add_systems(Update, (rotate_entities, count_entities, cycle_background_color_system));
 
         // app.init_asset::<Mesh>();
         // app.init_asset::<GameMaterial>();
     }
 }
-
-#[derive(Component)]
-struct RotatingEntity; // Component to indicate entity should be rotated
 
 pub fn count_entities(
     entities: Query<Entity>,
@@ -67,15 +80,9 @@ pub fn count_entities(
 
 fn setup_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<GameMaterial>>,
-) {
-    // 2. Create your generic material
-    let material_handle = materials.add(GameMaterial {
-        color: Color::srgb(0.7, 0.6, 0.7),
-    });
-
-    let cube_locations = [
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<GameMaterial>>,
+) {let cube_locations = [
         Vec3::new(0.0, 0.0, -5.0),
         Vec3::new(-4.0, 0.0, -9.0),
         Vec3::new(3.0, 0.0, -13.0),
@@ -83,23 +90,29 @@ fn setup_scene(
     ];
 
     for location in cube_locations.iter() {
-        // 3. Use MaterialMeshBundle instead of PbrBundle
         commands
-            .spawn(MaterialMeshBundle {
-                mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)), // or shape::Cube::new(1.0) depending on Bevy version
-                material: material_handle.clone(),
-                transform: Transform::from_translation(*location),
-                ..Default::default()
-            })
+            .spawn((
+
+        GameMesh(),
+               Transform::from_translation(*location),
+                Visibility::default(),
+            ))
             .insert(RotatingEntity);
     }
 
-    // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 1.0, 0.0),
-        ..Default::default()
-    });
+    // Mock Light (acting purely as a transform point in space)
+    commands.spawn((
+        GameLight(),
+       Transform::from_xyz(2.0, 5.0, 2.0),
+        Visibility::default(),
+    ));
 
+    // Mock Camera
+    commands.spawn((
+        GameCamera(),
+       Transform::from_xyz(0.0, 1.0, 0.0),
+        Visibility::default(),
+    ));
     // Note: If your custom material doesn't use lighting,
     // you don't need to spawn a PointLightBundle at all.
 }
@@ -108,4 +121,15 @@ fn rotate_entities(time: Res<Time>, mut query: Query<&mut Transform, With<Rotati
     for mut transform in query.iter_mut() {
         transform.rotation = Quat::from_rotation_y(time.elapsed_secs() as f32 / 2.0);
     }
+}
+
+fn cycle_background_color_system(mut hue: Local<f32>, mut bg: ResMut<BackgroundColor>) {
+    // Advance hue (0.0 to 360.0 degrees for Bevy's Hsva)
+    *hue += 3.6;
+    if *hue >= 360.0 {
+        *hue -= 360.0;
+    }
+
+    // Let Bevy handle the HSV to RGB conversion internally
+    bg.0 = Color::from(Hsva::new(*hue, 1.0, 1.0, 1.0));
 }

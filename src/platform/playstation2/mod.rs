@@ -19,51 +19,60 @@ use core::ptr;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;
 
+use crate::shared::{BackgroundColor, GameCamera, GameMesh};
+
 // use prussia_rt::cop0;
 // use ps2sdk_sys::kernel;
-// use ps2sdk_sys::gskit;
+use ps2sdk_sys::gskit;
 
 extern crate alloc;
 extern crate prussia_rt;
+
+mod components;
+pub use components::*;
+
+/// Holds the raw gsKit context handle for the Emotion Engine.
+#[derive(Resource)]
+pub struct GsContext(pub *mut GSGLOBAL);
+
+// Raw pointers don't implement Send/Sync by default.
+// Since PS2 runs single-threaded, it is safe to mark this as Sync.
+unsafe impl Send for GsContext {}
+unsafe impl Sync for GsContext {}
 
 pub struct Ps2PlatformPlugin;
 
 impl Plugin for Ps2PlatformPlugin {
     fn build(&self, app: &mut App) {
+        // Initialize gsKit hardware context
+        let gs_global = unsafe {
+            let gs = gskit::gsKit_hires_init_global();
+            gskit::gsKit_init_screen(gs);
+
+            gs
+        };
+
+        app.insert_resource(GsContext(gs_global));
+
         app.set_runner(ps2_runner);
+        app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
+            // Run 60 times per second.
+            Duration::from_secs_f64(1.0 / 60.0),
+        )));
+
         // app.add_systems(Startup, init)
         app.add_systems(Startup, hello_world_system);
-        app.add_systems(Update, cycle_background_color_system);
-
-        app.insert_resource(BackgroundColor::default());
-    }
-}
-
-#[derive(Resource)]
-pub struct BackgroundColor(pub Color);
-
-impl BackgroundColor {
-    /// Converts the Bevy Color into the 64-bit integer format expected by gsKit
-    #[inline(always)]
-    pub fn to_gs_format(&self) -> u64 {
-        let srgba = self.0.to_srgba();
-
-        // 1. Clamp to [0.0, 1.0] to prevent math anomalies
-        // 2. Cast to u32 FIRST to trigger native PS2 float-to-word instructions
-        // 3. Upcast to u64 for bitwise packing
-        let r = (srgba.red.clamp(0.0, 1.0) * 255.0) as u32 as u64;
-        let g = (srgba.green.clamp(0.0, 1.0) * 255.0) as u32 as u64;
-        let b = (srgba.blue.clamp(0.0, 1.0) * 255.0) as u32 as u64;
-
-        let a = 0x80_u64; // Standard solid alpha for gsKit
-
-        r | (g << 8) | (b << 16) | (a << 24)
-    }
-}
-
-impl Default for BackgroundColor {
-    fn default() -> Self {
-        Self(Color::BLACK)
+        app.add_systems(Update, render_system);
+        app.add_systems(Update, (attach_ps2_camera, attach_ps2_mesh));
+        app.add_systems(
+            Last,
+            (
+                clear_screen_system,
+                draw_meshes_system, // Queries Query<(&Transform, &Ps2Mesh)>
+                flip_display_system,
+            )
+                .chain(),
+        );
     }
 }
 
@@ -88,6 +97,7 @@ fn get_ps2_elapsed() -> Duration {
     Duration::from_nanos(total_nanos)
 }
 
+// Move into plugin build function?
 pub fn init() {
     unsafe {
         ps2sdk_sys::common::InitDebug();
@@ -122,18 +132,6 @@ fn ps2_runner(mut app: App) -> AppExit {
         // Run schedule updates
         app.update();
 
-        // 3. Fetch the latest background color computed by the app
-        let raw_color = app.world().resource::<BackgroundColor>().to_gs_format();
-
-        // println!("{:?}", raw_color);
-
-        unsafe {
-            // 4. Clear the screen, queue the execution, and flip the frame buffer
-            gskit::gsKit_clear(gs_global, raw_color);
-            gskit::gsKit_queue_exec(gs_global);
-            gskit::gsKit_sync_flip(gs_global);
-        }
-
         if let Some(exit) = app.should_exit() {
             return exit;
         }
@@ -143,6 +141,7 @@ fn ps2_runner(mut app: App) -> AppExit {
 // Reserve a static 16MB heap block inside the main RAM pool
 const HEAP_SIZE: usize = 1024 * 1024 * 16;
 
+// TODO: Replace with linked_list_allocator
 #[repr(C, align(16))] // Align to 16 bytes for native PS2 EE alignment requirements
 struct PS2StaticArena {
     heap: UnsafeCell<[u8; HEAP_SIZE]>,
@@ -239,26 +238,71 @@ pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
     backtrace_str
 }
 
-fn hello_world_system() {
+#[cfg(target_vendor = "sony")]
+fn attach_ps2_camera(
+    mut commands: Commands,
+    query: Query<Entity, Added<GameCamera>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).insert(Ps2Camera::default());
+    }
+}
+
+#[cfg(target_vendor = "sony")]
+fn attach_ps2_mesh(
+    mut commands: Commands,
+    query: Query<Entity, Added<GameMesh>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).insert(Ps2Mesh {});
+    }
+}
+
+fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
+    let raw_color = Ps2Color::from(*bg.0);
+
     unsafe {
-        // Set background color to blue.
-        ps2sdk_sys::common::scr_setbgcolor(0x0000FFFF);
+        gsKit_clear(gs.0, raw_color);
+        gskit::gsKit_clear(gs_global, );
     }
 }
 
-fn cycle_background_color_system(mut hue: Local<f32>, mut bg: ResMut<BackgroundColor>) {
-    // Advance hue (0.0 to 360.0 degrees for Bevy's Hsva)
-    *hue += 3.6;
-    if *hue >= 360.0 {
-        *hue -= 360.0;
+fn draw_meshes_system(query: Query<(&Transform, &Ps2Mesh)>) {
+    for entity in query.iter() {
+        // TODO: Implement actual mesh drawing logic here.
     }
-
-    // Let Bevy handle the HSV to RGB conversion internally
-    bg.0 = Color::from(Hsva::new(*hue, 1.0, 1.0, 1.0));
 }
 
-/// Helper to pack 8-bit RGBA channels into the 64-bit format expected by gsKit
-#[inline(always)]
-fn gs_color(r: u8, g: u8, b: u8, a: u8) -> u64 {
-    (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | ((a as u64) << 24)
+fn flip_display_system(gs: Res<GsContext>) {
+    unsafe {
+        gsKit_queue_exec(gs.0);
+        gsKit_sync_flip(gs.0);
+    }
 }
+
+pub Ps2Color(pub u64);
+
+/// Converts the Bevy Color into the 64-bit integer format expected by gsKit
+impl From<Color> for Ps2Color {
+    #[inline(always)]
+    fn from(color: Color) -> Self {
+        let srgba = color.to_srgba();
+
+        // 1. Clamp to [0.0, 1.0] to prevent math anomalies
+        // 2. Cast to u32 FIRST to trigger native PS2 float-to-word instructions
+        // 3. Upcast to u64 for bitwise packing
+        let r = (srgba.red.clamp(0.0, 1.0) * 255.0) as u32 as u64;
+        let g = (srgba.green.clamp(0.0, 1.0) * 255.0) as u32 as u64;
+        let b = (srgba.blue.clamp(0.0, 1.0) * 255.0) as u32 as u64;
+
+        let a = 0x80_u64; // Standard solid alpha for gsKit
+
+        r | (g << 8) | (b << 16) | (a << 24)
+    }
+}
+
+// /// Helper to pack 8-bit RGBA channels into the 64-bit format expected by gsKit
+// #[inline(always)]
+// fn gs_color(r: u8, g: u8, b: u8, a: u8) -> u64 {
+//     (r as u64) | ((g as u64) << 8) | ((b as u64) << 16) | ((a as u64) << 24)
+// }

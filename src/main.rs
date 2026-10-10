@@ -53,7 +53,7 @@ fn main() {
 #[cfg(target_vendor = "sony")]
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
-    platform::ps2::init();
+    platform::init();
 
     println!("Setting up Bevy app...");
 
