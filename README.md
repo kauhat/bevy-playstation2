@@ -95,13 +95,13 @@ PS2 builds are broken right now. linking?
 
 ## Targets
 
-### [[./mips64el-sony-ps2.json]]
+### [mips64el-sony-ps2.json](./mips64el-sony-ps2.json)
 
 mips64el-sony-ps2.json: Current active target. Uses mips2 instruction set and n32 ABI Builds and links against PS2SDK libs.
 
-### [[./mipsel-sony-ps2.json]]
+### [mipsel-sony-ps2.json](./mipsel-sony-ps2.json)
 
-Fails to link. ignore this one. maybe should try using Prussia's [[./vendor/prussia/ps2.json]] or something.
+Fails to link. ignore this one. maybe should try using [Prussia's](./vendor/prussia/ps2.json) or something.
 
 ---
 
