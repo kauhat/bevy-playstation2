@@ -11,7 +11,10 @@ default: ps2-run-elf
 #
 
 ps2-cargo +ARGS="":
-    CARGO_BUILD_TARGET={{ PS2_TARGET }} cargo {{ ARGS }}
+    CARGO_BUILD_TARGET={{ PS2_TARGET }} \
+    CARGO_UNSTABLE_BUILD_STD=core,alloc \
+    CARGO_UNSTABLE_BUILD_STD_FEATURES=compiler-builtins-mem \
+    cargo {{ ARGS }}
 
 # Compile the release ELF binary for PS2
 ps2-build:

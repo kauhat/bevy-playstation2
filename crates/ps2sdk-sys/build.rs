@@ -21,9 +21,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=PS2DEV");
 
     // Search paths for PS2SDK, gsKit, and EE toolchain libs
-    println!("cargo:rustc-link-search=native={ps2sdk}/ee/lib");
-    println!("cargo:rustc-link-search=native={ps2sdk}/iop/lib");
-    println!("cargo:rustc-link-search=native={ps2dev_root}/gsKit/lib");
+    println!("cargo:rustc-link-search={ps2dev_root}/ee/mips64r5900el-ps2-elf/lib");
+    println!("cargo:rustc-link-search={ps2dev_root}/ps2sdk/ee/lib");
+    println!("cargo:rustc-link-search={ps2dev_root}/ps2sdk/iop/lib");
+    println!("cargo:rustc-link-search={ps2dev_root}/gsKit/lib");
+    // println!("cargo:rustc-link-search={ps2dev_root}/ee/lib");
+    // println!("cargo:rustc-link-search={ps2dev_root}/iop/lib");
 
     // Linker script
     println!("cargo:rustc-link-arg=-T{linkfile}");
@@ -38,6 +41,8 @@ fn main() {
 
     // Metadata for downstream dependents (bevy-ps2 root crate)
     println!("cargo:linkfile_path={linkfile}");
-    println!("cargo:link_search={ps2sdk}/ee/lib");
-    println!("cargo:link_search={ps2dev_root}/gsKit/lib");
+    // println!("cargo:link_search={ps2sdk}/ee/lib");
+    // println!("cargo:link_search={ps2dev_root}/gsKit/lib");
+    // println!("cargo:link_search={ps2dev_root}/iop/lib");
+    // println!("cargo:link_search={ps2dev_root}/iop/lib");
 }

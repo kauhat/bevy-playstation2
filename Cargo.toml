@@ -26,8 +26,8 @@ cfg-if = "1.0"
 
 # PC host...
 [target.'cfg(not(target_vendor = "sony"))'.dependencies]
-bevy = { version = "0.20" } # Full default features for desktop iteration
-# bevy_ecs = { version = "0.20" }
+bevy = { version = "0.20", default-features = true } # Full default features for desktop iteration
+bevy_ecs = { version = "0.20" }
 # bevy_color = { version = "0.20" }
 # bevy_transform = { version = "0.20" }
 # bevy_asset = { version = "0.20" }

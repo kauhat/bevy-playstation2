@@ -270,17 +270,19 @@
             "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
         };
+        
+        cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
 
-        cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Z build-std=core,alloc -Z build-std-features=compiler-builtins-mem -Z json-target-spec";
-
-        nativeBuildInputs = [e.ps2dev e.pkgs.pkg-config];
+        nativeBuildInputs = [e.pkgs.pkg-config];
+        buildInputs = [e.ps2dev];
 
         preBuild = ''
           export PS2DEV="${e.ps2dev}"
           export PS2SDK="$PS2DEV/ps2sdk"
+          export GSKIT="$PS2DEV/gsKit"
+          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
           export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
-          export PATH="$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin"
-          export RUSTFLAGS="${builtins.getEnv "RUSTFLAGS"} -L native=$PS2SDK_LIBDIR"
+          export PS2SDK_INCDIR="$PS2SDK/ee/include"
         '';
 
         installPhaseCommand = ''
