@@ -7,12 +7,12 @@ fn main() {
         println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINKFILE");
         println!("cargo:rerun-if-env-changed=DEP_PS2SDK_ARGS");
 
-        if let Ok(linkfile) = env::var("DEP_PS2SDK_LINKFILE_PATH") {
+        if let Ok(linkfile) = env::var("DEP_PS2SDK_LINKFILE") {
             println!("cargo:rustc-link-arg=-T{linkfile}");
         }
 
-        if let Ok(args) = env::var("DEP_PS2SDK_ARGS") {
-            println!("cargo:rustc-link-arg={args}");
+        if let Ok(link_group) = env::var("DEP_PS2SDK_LINK_GROUP") {
+            println!("cargo:rustc-link-arg={link_group}");
         }
     };
 }

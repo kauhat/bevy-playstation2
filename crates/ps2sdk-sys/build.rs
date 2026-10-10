@@ -20,5 +20,7 @@ fn main() {
 
     // Export linkfile and library group metadata to downstream crates
     println!("cargo:linkfile={ps2sdk}/ee/startup/linkfile");
-    println!("cargo:args=-Wl,--start-group,-lgskit,-ldmakit,-ldraw,-lgraph,-ldma,-lpad,-lpatches,-lkernel,-lcdvd,-lcglue,-ldebug,-lpthread,-lpthreadglue,-lc,-lm,--end-group");
+    println!(
+        "cargo:link_group=-Wl,--start-group,-lgskit,-ldmakit,-ldraw,-lgraph,-ldma,-lpad,-lpatches,-lkernel,-lcdvd,-lcglue,-ldebug,-lpthread,-lpthreadglue,-lc,-lm,--end-group"
+    );
 }
