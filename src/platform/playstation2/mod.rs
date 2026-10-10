@@ -1,5 +1,6 @@
-#![allow(unused)]
+// #![allow(unused)]
 
+use linked_list_allocator::LockedHeap;
 use alloc::format;
 use alloc::string::String;
 use bevy::MinimalPlugins;
@@ -30,12 +31,58 @@ extern crate alloc;
 mod components;
 pub use components::*;
 
+
+// Reserve a static 16MB heap block inside the main RAM pool
+const HEAP_SIZE: usize = 1024 * 1024 * 16;
+
+#[repr(C, align(16))]
+struct HeapBuffer([u8; HEAP_SIZE]);
+
+#[global_allocator]
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static HEAP_MEMORY: HeapBuffer = HeapBuffer([0; HEAP_SIZE]);
+
+pub fn init_heap() {
+    let heap_start = HEAP_MEMORY.0.as_ptr() as *mut u8;
+    let heap_size = HEAP_SIZE;
+    unsafe {
+        ALLOCATOR.lock().init(heap_start, HEAP_SIZE);
+    }
+}
+
+#[inline(never)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    unsafe {
+        // TODO: colors can be 32 bit as well?
+        Ps2Color::from(Color::srgb(1.0, 0.0, 0.0));
+        
+        // Set background color to red.
+        ps2sdk_sys::common::scr_setbgcolor(0xFF0000FF);
+    }
+
+    println!("Panic: {}", info);
+
+    // println!("Panic!\nMessage: {:?}", info.message());
+
+    // if let Some(location) = info.location() {
+    //     println!("Location: {}:{}", location.file(), location.line());
+    // }
+
+    // Fetch and print the 16 deepest frame addresses from PS2 memory
+    let backtrace = get_ps2_backtrace::<16>();
+
+    println!("{}", backtrace);
+
+    loop {
+        core::hint::spin_loop();
+    }
+}
+
+
 /// Holds the raw gsKit context handle for the Emotion Engine.
 #[derive(Resource)]
 pub struct GsContext(pub *mut GSGLOBAL);
-
-// Raw pointers don't implement Send/Sync by default.
-// Since PS2 runs single-threaded, it is safe to mark this as Sync.
 unsafe impl Send for GsContext {}
 unsafe impl Sync for GsContext {}
 
@@ -56,13 +103,16 @@ impl Plugin for Ps2PlatformPlugin {
         app.set_runner(ps2_runner);
 
         app.add_plugins(
-            // TaskPoolPlugin immediatly panics, disable for now.
-            MinimalPlugins.build().disable::<TaskPoolPlugin>(),
+            MinimalPlugins.build()
+
+            // TaskPoolPlugin immediatly panics, disable for now. (mips2 fixed this????)
+            // MinimalPlugins.build().disable::<TaskPoolPlugin>(),
         );
 
-        // NOTE: `hello_world_system` / `render_system` are not defined anywhere
-        // in the crate, so they are no longer registered here.
+        
         app.add_systems(Update, (attach_ps2_camera, attach_ps2_mesh));
+
+        // Rendering...
         app.add_systems(
             Last,
             (
@@ -98,6 +148,7 @@ fn get_ps2_elapsed() -> Duration {
 
 // Move into plugin build function?
 pub fn init() {
+
     unsafe {
         ps2sdk_sys::common::InitDebug();
         ps2sdk_sys::common::init_scr();
@@ -109,11 +160,7 @@ pub fn init() {
     }
 
     println!("Init!");
-    println!(
-        "Heap: {:?} Offset: {:?}",
-        ALLOCATOR.heap.get(),
-        ALLOCATOR.offset.get()
-    );
+    init_heap()
 }
 
 fn ps2_runner(mut app: App) -> AppExit {
@@ -137,80 +184,6 @@ fn ps2_runner(mut app: App) -> AppExit {
     }
 }
 
-// Reserve a static 16MB heap block inside the main RAM pool
-const HEAP_SIZE: usize = 1024 * 1024 * 16;
-
-// TODO: Replace with linked_list_allocator
-#[repr(C, align(16))] // Align to 16 bytes for native PS2 EE alignment requirements
-struct PS2StaticArena {
-    heap: UnsafeCell<[u8; HEAP_SIZE]>,
-    offset: UnsafeCell<usize>,
-}
-
-// GlobalAlloc requires the allocator structure to fulfill the `Sync` trait invariant
-unsafe impl Sync for PS2StaticArena {}
-
-unsafe impl GlobalAlloc for PS2StaticArena {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let offset = unsafe { &mut *self.offset.get() };
-        let size = layout.size();
-        let align = layout.align();
-
-        // Ensure accurate alignment offset calculation
-        let align_mask = !(align - 1);
-        let start = (*offset + align - 1) & align_mask;
-
-        if start + size > HEAP_SIZE {
-            ptr::null_mut() // Out Of Memory
-        } else {
-            *offset = start + size;
-            let heap_ptr = self.heap.get() as *mut u8;
-            unsafe {
-                let res = heap_ptr.add(start);
-
-                // println!("Allocated at: {:p}\0", heap_ptr.add(start));
-
-                res
-            }
-        }
-    }
-
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        // Basic bump allocators don't recover memory individually.
-        // For production, consider using a `linked_list_allocator` or `buddy_allocator` crate.
-    }
-}
-
-#[global_allocator]
-static ALLOCATOR: PS2StaticArena = PS2StaticArena {
-    heap: UnsafeCell::new([0; HEAP_SIZE]),
-    offset: UnsafeCell::new(0),
-};
-
-#[inline(never)]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    unsafe {
-        // Set background color to red.
-        ps2sdk_sys::common::scr_setbgcolor(0xFF0000FF);
-    }
-
-    println!("Panic: {}", info);
-
-    // println!("Panic!\nMessage: {:?}", info.message());
-
-    // if let Some(location) = info.location() {
-    //     println!("Location: {}:{}", location.file(), location.line());
-    // }
-
-    // Fetch and print the 16 deepest frame addresses from PS2 memory
-    let backtrace = get_ps2_backtrace::<16>();
-    println!("{}", backtrace);
-
-    loop {
-        core::hint::spin_loop();
-    }
-}
 
 #[inline(always)]
 pub fn get_ps2_backtrace<const MAX_DEPTH: usize>() -> String {
