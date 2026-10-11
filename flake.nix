@@ -258,40 +258,42 @@
         buildInputs = e.runtimeLibs;
       };
 
-      elf = e.craneLib.buildPackage {
-        inherit src;
-        pname = "bevy-ps2-elf";
-        version = "0.1.0";
 
-        cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
-          inherit (e.craneLib.findCargoFiles src) cargoConfigs;
-          cargoLockList = [
-            ./Cargo.lock
-            "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
-          ];
-        };
-        
-        cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
+elf = e.craneLib.buildPackage {
+  inherit src;
+  pname = "bevy-ps2-elf";
+  version = "0.1.0";
 
-        nativeBuildInputs = [e.pkgs.pkg-config];
-        buildInputs = [e.ps2dev];
+  cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
+    inherit (e.craneLib.findCargoFiles src) cargoConfigs;
+    cargoLockList = [
+      ./Cargo.lock
+      "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
+    ];
+  };
+  
+  cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
 
-        preBuild = ''
-          export PS2DEV="${e.ps2dev}"
-          export PS2SDK="$PS2DEV/ps2sdk"
-          export GSKIT="$PS2DEV/gsKit"
-          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-          export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
-          export PS2SDK_INCDIR="$PS2SDK/ee/include"
-        '';
+  nativeBuildInputs = [e.pkgs.pkg-config];
+  buildInputs = [e.ps2dev];
 
-        installPhaseCommand = ''
-          mkdir -p $out/bin
-          cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
-        '';
+  # Set environment variables early so they're available during the entire build
+  PS2DEV = "${e.ps2dev}";
+  PS2SDK = "${e.ps2dev}/ps2sdk";
+  GSKIT = "${e.ps2dev}/gsKit";
+  
+  # Make ps2dev tools available in PATH
+  preBuild = ''
+    export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
+  '';
 
-        doCheck = false;
-      };
+  installPhaseCommand = ''
+    mkdir -p $out/bin
+    cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
+  '';
+
+  doCheck = false;
+};
 
       iso = e.pkgs.stdenv.mkDerivation {
         pname = "bevy-ps2-iso";
