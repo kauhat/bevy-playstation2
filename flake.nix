@@ -290,8 +290,10 @@
           doCheck = false;
         };
       
-        # 2. Build ONLY third-party dependencies into cached artifacts
-        cargoArtifacts = e.craneLib.buildDepsOnly commonArgs;
+      # Only compile library dependencies during dependency caching (prevents linking binaries)
+      cargoArtifacts = e.craneLib.buildDepsOnly (commonArgs // {
+        cargoExtraArgs = "${commonArgs.cargoExtraArgs} --lib";
+      });
       
       in e.craneLib.buildPackage (commonArgs // {
         # 3. Pass the pre-built third-party dependencies
