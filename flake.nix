@@ -176,7 +176,7 @@
 
       craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-    runtimeLibs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
+      runtimeLibs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
         udev
         alsa-lib
         libxkbcommon
@@ -197,8 +197,10 @@
         name = "bevy-runtime-libs";
         paths = runtimeLibs;
       };
+
+      hasPcsx2 = (pkgs ? pcsx2) && (pkgs.pcsx2.meta.available or false);
     in {
-      inherit pkgs rustToolchain craneLib ps2dev ps2sdk runtimeLibs runtimeLibsEnv;
+      inherit pkgs rustToolchain craneLib ps2dev ps2sdk runtimeLibs runtimeLibsEnv hasPcsx2;
     });
   in {
     formatter = forAllSystems (
@@ -223,11 +225,11 @@
             e.pkgs.just
             e.rustToolchain
             e.pkgs.rust-bindgen
-            e.pkgs.pcsx2
             e.pkgs.cdrtools
             e.pkgs.alejandra
             # e.nixGLPkg
           ]
+          ++ e.pkgs.lib.optional e.hasPcsx2 e.pkgs.pcsx2
           ++ e.runtimeLibs;
 
         shellHook = ''
@@ -240,7 +242,11 @@
 
           export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
           # export LD_LIBRARY_PATH="${e.pkgs.lib.makeLibraryPath e.runtimeLibs}:$LD_LIBRARY_PATH"
+
           echo "PS2 SDK Build Environment Loaded for ${system}!"
+          ${e.pkgs.lib.optionalString (!e.hasPcsx2) ''
+            echo "Note: PCSX2 is not available for ${system} in nixpkgs and was omitted from the shell."
+          ''}
         '';
       };
     });
@@ -270,7 +276,7 @@
             "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
         };
-        
+
         cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
 
         nativeBuildInputs = [e.pkgs.pkg-config];
@@ -281,8 +287,6 @@
           export PS2SDK="$PS2DEV/ps2sdk"
           export GSKIT="$PS2DEV/gsKit"
           export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-          export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
-          export PS2SDK_INCDIR="$PS2SDK/ee/include"
         '';
 
         installPhaseCommand = ''
@@ -314,35 +318,37 @@
 
     apps = forAllSystems (system: let
       e = env.${system};
-    in {
-      # Build PS2 ISO and run in PCSX2.
-      default = {
-        type = "app";
-        program = "${e.pkgs.writeShellScriptBin "run-iso" ''
-          set -e
-          ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
-        ''}/bin/run-iso";
-      };
+    in
+      e.pkgs.lib.optionalAttrs e.hasPcsx2 {
+        # Build PS2 ISO and run in PCSX2.
+        default = {
+          type = "app";
+          program = "${e.pkgs.writeShellScriptBin "run-iso" ''
+            set -e
+            ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
+            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
+          ''}/bin/run-iso";
+        };
 
-      # Build PS2 ISO and run in PCSX2 (with debugger.)
-      debugger = {
-        type = "app";
-        program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
-          set -e
-          ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-          exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
-        ''}/bin/run-iso-debug";
-      };
-
-      # Run PC executable.
-      pc = {
-        type = "app";
-        program = "${e.pkgs.writeShellScriptBin "run-pc" ''
-          set -e
-          exec ${self.packages.${system}.pc}/bin/bevy-ps2
-        ''}/bin/run-pc";
-      };
-    });
+        # Build PS2 ISO and run in PCSX2 (with debugger.)
+        debugger = {
+          type = "app";
+          program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
+            set -e
+            ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
+            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
+          ''}/bin/run-iso-debug";
+        };
+      }
+      // {
+        # Run PC executable.
+        pc = {
+          type = "app";
+          program = "${e.pkgs.writeShellScriptBin "run-pc" ''
+            set -e
+            exec ${self.packages.${system}.pc}/bin/bevy-ps2
+          ''}/bin/run-pc";
+        };
+      });
   };
 }
