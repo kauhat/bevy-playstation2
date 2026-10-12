@@ -160,8 +160,6 @@
       };
 
       elf = let
-        # 1. Clean source that ONLY includes Cargo.lock / Cargo.toml files
-        # for dependencies, excluding your local crate source code.
         cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
           inherit (e.craneLib.findCargoFiles src) cargoConfigs;
           cargoLockList = [
@@ -191,12 +189,11 @@
           doCheck = false;
         };
 
-        # Only compile library dependencies during dependency caching (prevents linking binaries)
         cargoArtifacts = e.craneLib.buildDepsOnly commonArgs;
       in
         e.craneLib.buildPackage (commonArgs
           // {
-            # 3. Pass the pre-built third-party dependencies
+            # Pass the pre-built third-party dependencies
             inherit cargoArtifacts;
 
             installPhaseCommand = ''
