@@ -20,12 +20,11 @@
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
-          # nixgl.overlays.default
           rust-overlay.overlays.default
         ];
       };
 
-      ps2devSrc =
+      ps2devToolchainSrc =
         {
           "x86_64-linux" = {
             asset = "ubuntu-latest";
@@ -47,13 +46,13 @@
           system
         };
 
-      ps2dev = pkgs.stdenv.mkDerivation {
+      ps2devToolchain = pkgs.stdenv.mkDerivation {
         pname = "ps2dev";
         version = "2.0.0";
 
         src = pkgs.fetchurl {
-          url = "https://github.com/ps2dev/ps2dev/releases/download/v2.0.0/ps2dev-${ps2devSrc.asset}.tar.gz";
-          sha256 = ps2devSrc.hash;
+          url = "https://github.com/ps2dev/ps2dev/releases/download/v2.0.0/ps2dev-${ps2devToolchainSrc.asset}.tar.gz";
+          sha256 = ps2devToolchainSrc.hash;
         };
 
         nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [pkgs.autoPatchelfHook];
@@ -99,7 +98,7 @@
         };
 
         nativeBuildInputs = [
-          ps2dev
+          ps2devToolchain
           pkgs.pkg-config
           pkgs.bash
         ];
@@ -150,7 +149,7 @@
         '';
 
         preBuild = ''
-          export PS2DEV="${ps2dev}"
+          export PS2DEV="${ps2devToolchain}"
           export PS2SDK="$out"
           export PS2SDKSRC="$(pwd)"
           export PATH="$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin"
@@ -200,7 +199,7 @@
 
       hasPcsx2 = (pkgs ? pcsx2) && (pkgs.pcsx2.meta.available or false);
     in {
-      inherit pkgs rustToolchain craneLib ps2dev ps2sdk runtimeLibs runtimeLibsEnv hasPcsx2;
+      inherit pkgs rustToolchain craneLib ps2devToolchain ps2sdk runtimeLibs runtimeLibsEnv hasPcsx2;
     });
   in {
     formatter = forAllSystems (
@@ -218,30 +217,25 @@
 
         buildInputs =
           [
-            e.ps2dev
+            e.ps2devToolchain
+            e.rustToolchain
             # e.ps2sdk
             e.pkgs.gnumake
             e.pkgs.git
             e.pkgs.just
-            e.rustToolchain
             e.pkgs.rust-bindgen
             e.pkgs.cdrtools
             e.pkgs.alejandra
-            # e.nixGLPkg
           ]
           ++ e.pkgs.lib.optional e.hasPcsx2 e.pkgs.pcsx2
           ++ e.runtimeLibs;
 
         shellHook = ''
-          export PS2DEV="${e.ps2dev}"
+          export PS2DEV="${e.ps2devToolchain}"
           export PS2SDK="$PS2DEV/ps2sdk"
           export GSKIT="$PS2DEV/gsKit"
           export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-          export PS2SDK_LIBDIR="$PS2SDK/ee/lib"
-          export PS2SDK_INCDIR="$PS2SDK/ee/include"
-
           export PKG_CONFIG_PATH="${e.pkgs.wayland.dev}/lib/pkgconfig:${e.pkgs.libxkbcommon.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-          # export LD_LIBRARY_PATH="${e.pkgs.lib.makeLibraryPath e.runtimeLibs}:$LD_LIBRARY_PATH"
 
           echo "PS2 SDK Build Environment Loaded for ${system}!"
           ${e.pkgs.lib.optionalString (!e.hasPcsx2) ''
@@ -265,7 +259,7 @@
       };
 
       elf = let
-        # 1. Clean source that ONLY includes Cargo.lock / Cargo.toml files 
+        # 1. Clean source that ONLY includes Cargo.lock / Cargo.toml files
         # for dependencies, excluding your local crate source code.
         cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
           inherit (e.craneLib.findCargoFiles src) cargoConfigs;
@@ -274,42 +268,41 @@
             "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
         };
-      
+
         commonArgs = {
           inherit src cargoVendorDir;
           pname = "bevy-ps2-elf";
           version = "0.1.0";
-      
+
           cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
-      
-          nativeBuildInputs = [ e.pkgs.pkg-config ];
-          buildInputs = [ e.ps2dev ];
-      
-          PS2DEV = "${e.ps2dev}";
-          PS2SDK = "${e.ps2dev}/ps2sdk";
-          GSKIT = "${e.ps2dev}/gsKit";
-      
+
+          nativeBuildInputs = [e.pkgs.pkg-config];
+          buildInputs = [e.ps2devToolchain];
+
+          PS2DEV = "${e.ps2devToolchain}";
+          PS2SDK = "${e.ps2devToolchain}/ps2sdk";
+          GSKIT = "${e.ps2devToolchain}/gsKit";
+
           preBuild = ''
             export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
           '';
-      
+
           doCheck = false;
         };
-      
-      # Only compile library dependencies during dependency caching (prevents linking binaries)
-      cargoArtifacts = e.craneLib.buildDepsOnly (commonArgs // {
-        cargoExtraArgs = "${commonArgs.cargoExtraArgs} --lib";
-      });
-      
-      in e.craneLib.buildPackage (commonArgs // {
-        # 3. Pass the pre-built third-party dependencies
-        inherit cargoArtifacts;
-      
-        installPhaseCommand = ''
-          mkdir -p $out/bin
-          cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
-        '';
-      });
+
+        # Only compile library dependencies during dependency caching (prevents linking binaries)
+        cargoArtifacts = e.craneLib.buildDepsOnly commonArgs;
+      in
+        e.craneLib.buildPackage (commonArgs
+          // {
+            # 3. Pass the pre-built third-party dependencies
+            inherit cargoArtifacts;
+
+            installPhaseCommand = ''
+              mkdir -p $out/bin
+              cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
+            '';
+          });
 
       iso = e.pkgs.stdenv.mkDerivation {
         pname = "bevy-ps2-iso";

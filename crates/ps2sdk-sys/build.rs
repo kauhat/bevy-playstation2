@@ -18,12 +18,11 @@ fn main() {
     println!("cargo:rustc-link-search=native={ps2dev}/gsKit/lib");
     println!("cargo:rustc-link-search=native={ps2dev}/ee/mips64r5900el-ps2-elf/lib");
 
-
-println!("cargo:rustc-link-arg=-T{ps2sdk}/ee/startup/linkfile");
-    println!("cargo:rustc-link-arg=-Wl,--start-group,-lgskit,-ldmakit,-ldraw,-lgraph,-ldma,-lpad,-lpatches,-lkernel,-lcdvd,-lcglue,-ldebug,-lpthread,-lpthreadglue,-lc,-lm,--end-group");
-
-
-
+    // Set linker config for this crate (for testing?)
+    println!("cargo:rustc-link-arg=-T{ps2sdk}/ee/startup/linkfile");
+    println!(
+        "cargo:rustc-link-arg=-Wl,--start-group,-lgskit,-ldmakit,-ldraw,-lgraph,-ldma,-lpad,-lpatches,-lkernel,-lcdvd,-lcglue,-ldebug,-lpthread,-lpthreadglue,-lc,-lm,--end-group"
+    );
 
     // Export linkfile and library group metadata to downstream crates
     println!("cargo:linkfile={ps2sdk}/ee/startup/linkfile");
