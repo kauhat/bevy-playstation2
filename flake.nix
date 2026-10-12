@@ -264,11 +264,9 @@
         buildInputs = e.runtimeLibs;
       };
 
-      elf = e.craneLib.buildPackage {
-        inherit src;
-        pname = "bevy-ps2-elf";
-        version = "0.1.0";
-
+      elf = let
+        # 1. Clean source that ONLY includes Cargo.lock / Cargo.toml files 
+        # for dependencies, excluding your local crate source code.
         cargoVendorDir = e.craneLib.vendorMultipleCargoDeps {
           inherit (e.craneLib.findCargoFiles src) cargoConfigs;
           cargoLockList = [
@@ -276,26 +274,42 @@
             "${e.rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library/Cargo.lock"
           ];
         };
-
-        cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
-
-        nativeBuildInputs = [e.pkgs.pkg-config];
-        buildInputs = [e.ps2dev];
-
-        preBuild = ''
-          export PS2DEV="${e.ps2dev}"
-          export PS2SDK="$PS2DEV/ps2sdk"
-          export GSKIT="$PS2DEV/gsKit"
-          export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-        '';
-
+      
+        commonArgs = {
+          inherit src cargoVendorDir;
+          pname = "bevy-ps2-elf";
+          version = "0.1.0";
+      
+          cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
+      
+          nativeBuildInputs = [ e.pkgs.pkg-config ];
+          buildInputs = [ e.ps2dev ];
+      
+          PS2DEV = "${e.ps2dev}";
+          PS2SDK = "${e.ps2dev}/ps2sdk";
+          GSKIT = "${e.ps2dev}/gsKit";
+      
+          preBuild = ''
+            export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
+          '';
+      
+          doCheck = false;
+        };
+      
+      # Only compile library dependencies during dependency caching (prevents linking binaries)
+      cargoArtifacts = e.craneLib.buildDepsOnly (commonArgs // {
+        cargoExtraArgs = "${commonArgs.cargoExtraArgs} --lib";
+      });
+      
+      in e.craneLib.buildPackage (commonArgs // {
+        # 3. Pass the pre-built third-party dependencies
+        inherit cargoArtifacts;
+      
         installPhaseCommand = ''
           mkdir -p $out/bin
           cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
         '';
-
-        doCheck = false;
-      };
+      });
 
       iso = e.pkgs.stdenv.mkDerivation {
         pname = "bevy-ps2-iso";
