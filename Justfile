@@ -1,8 +1,10 @@
 set shell := ["bash", "-uc"]
 
+BUILD_MODE := env("BUILD_MODE", "debug")
+
 PS2_TARGET := "mips64el-sony-ps2.json"
-PS2_ELF_PATH := "target/mips64el-sony-ps2/debug/bevy-ps2"
-PS2_ISO_PATH := "target/bevy-ps2.iso"
+PS2_ELF_PATH := "target/mips64el-sony-ps2/" + BUILD_MODE + "/bevy-ps2"
+PS2_ISO_PATH := "target/iso/" + BUILD_MODE + "/bevy-ps2.iso"
 
 default: ps2-run-elf
 
@@ -11,6 +13,7 @@ default: ps2-run-elf
 #
 
 ps2-cargo +ARGS="":
+    CARGO_BUILD_PROFILE={{ BUILD_MODE }} \
     CARGO_BUILD_TARGET={{ PS2_TARGET }} \
     CARGO_UNSTABLE_BUILD_STD=core,alloc \
     CARGO_UNSTABLE_BUILD_STD_FEATURES=compiler-builtins-mem \
@@ -21,10 +24,12 @@ ps2-build:
     @just ps2-cargo build
 
     # Verify that the ELF was built successfully.
-    mips64r5900el-ps2-elf-readelf -h {{ PS2_ELF_PATH }}
+    mips64r5900el-ps2-elf-readelf -h "{{ PS2_ELF_PATH }}"
 
 # Create a bootable PS2 ISO.
 ps2-pack-iso: ps2-build
+    mkdir -p $(dirname "{{ PS2_ISO_PATH }}")
+    
     ./scripts/pack-iso.sh "{{ PS2_ELF_PATH }}" "{{ PS2_ISO_PATH }}"
 
 # Build and execute directly in PCSX2.
