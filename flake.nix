@@ -173,7 +173,7 @@
           pname = "bevy-ps2-elf";
           version = "0.1.0";
 
-          cargoExtraArgs = "--target ${./mips64el-sony-ps2.json} -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
+          cargoExtraArgs = "--target ./mips64el-sony-ps2.json -Zbuild-std=core,alloc -Zbuild-std-features=compiler-builtins-mem -Zjson-target-spec";
 
           nativeBuildInputs = [e.pkgs.pkg-config];
           buildInputs = [e.ps2devToolchain];
@@ -184,12 +184,29 @@
 
           preBuild = ''
             export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
+            
+            cp -f ${./mips64el-sony-ps2.json} mips64el-sony-ps2.json
           '';
 
           doCheck = false;
         };
 
-        cargoArtifacts = e.craneLib.buildDepsOnly commonArgs;
+        cargoArtifacts = e.craneLib.buildDepsOnly (commonArgs
+          // {
+            # TODO: Is this a hack?
+            # Crane stubs out build.rs and main.rs in buildDepsOnly, so skip
+            # crt0/entry  when linking the throwaway dummy binary without
+            # altering dependency RUSTFLAGS.
+            postPatch = ''
+              cat > build.rs <<'EOF'
+              fn main() {
+                  println!("cargo:rustc-link-arg=-nostartfiles");
+                  println!("cargo:rustc-link-arg=-Wl,--entry=0");
+              }
+              EOF
+              sed -i 's|^build = .*|build = "build.rs"|' Cargo.toml
+            '';
+          });
       in
         e.craneLib.buildPackage (commonArgs
           // {
@@ -198,6 +215,7 @@
 
             installPhaseCommand = ''
               mkdir -p $out/bin
+              
               cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
             '';
           });
@@ -231,7 +249,7 @@
           program = "${e.pkgs.writeShellScriptBin "run-iso" ''
             set -e
             ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -disc "$ISO_PATH"
+            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt "$ISO_PATH"
           ''}/bin/run-iso";
         };
 
@@ -241,7 +259,7 @@
           program = "${e.pkgs.writeShellScriptBin "run-iso-debug" ''
             set -e
             ISO_PATH="${self.packages.${system}.iso}/bevy-ps2.iso"
-            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger -disc "$ISO_PATH"
+            exec ${e.pkgs.pcsx2}/bin/pcsx2-qt -debugger "$ISO_PATH"
           ''}/bin/run-iso-debug";
         };
       }

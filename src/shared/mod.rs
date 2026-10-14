@@ -50,7 +50,7 @@ pub struct DebugTimers {
 impl Default for DebugTimers {
     fn default() -> Self {
         Self {
-            fps_timer: Timer::from_seconds(2.0, TimerMode::Repeating),
+            fps_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
             message_timer: Timer::from_seconds(5.0, TimerMode::Repeating),
         }
     }
@@ -66,7 +66,7 @@ pub struct SpawnTracker {
 impl Default for SpawnTracker {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(10.0, TimerMode::Repeating),
+            timer: Timer::from_seconds(5.0, TimerMode::Repeating),
             next_id: 0,
         }
     }

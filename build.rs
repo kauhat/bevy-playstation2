@@ -5,7 +5,7 @@ fn main() {
 
     if target_vendor == "sony" {
         println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINKFILE");
-        println!("cargo:rerun-if-env-changed=DEP_PS2SDK_ARGS");
+        println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINK_GROUP");
 
         if let Ok(linkfile) = env::var("DEP_PS2SDK_LINKFILE") {
             println!("cargo:rustc-link-arg=-T{linkfile}");
