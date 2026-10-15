@@ -148,7 +148,31 @@
 
     packages = forAllSystems (system: let
       e = env.${system};
-      src = e.craneLib.cleanCargoSource ./.;
+      lib = e.pkgs.lib;
+
+      # crane's cleanCargoSource keeps Cargo manifests and *.rs files and nothing else, which
+      # silently drops everything a build script reaches for at run time: prussia_rt's assembly
+      # sources, linker script and prebuilt archive, ps2sdk-sys's bindgen wrappers. Filter by hand
+      # instead, excluding only the junk that would otherwise churn the source hash every build.
+      src = lib.cleanSourceWith {
+        src = ./.;
+        filter = path: type: let
+          root = toString ./.;
+          rel = builtins.substring (builtins.stringLength root + 1) (builtins.stringLength path) path;
+          parts = lib.splitString "/" rel;
+          junk = [
+            "target"
+            ".git"
+            ".direnv"
+            ".vscode"
+            ".github"
+            "assets"
+          ];
+        in
+          !lib.any (part: lib.elem part junk) parts
+          && !lib.hasPrefix "result" rel
+          && !lib.hasPrefix ".aider" rel;
+      };
     in {
       pc = e.craneLib.buildPackage {
         inherit src;
@@ -193,19 +217,16 @@
 
         cargoArtifacts = e.craneLib.buildDepsOnly (commonArgs
           // {
-            # TODO: Is this a hack?
-            # Crane stubs out build.rs and main.rs in buildDepsOnly, so skip
-            # crt0/entry  when linking the throwaway dummy binary without
-            # altering dependency RUSTFLAGS.
-            postPatch = ''
-              cat > build.rs <<'EOF'
-              fn main() {
-                  println!("cargo:rustc-link-arg=-nostartfiles");
-                  println!("cargo:rustc-link-arg=-Wl,--entry=0");
-              }
-              EOF
-              sed -i 's|^build = .*|build = "build.rs"|' Cargo.toml
-            '';
+            # Crane swaps in a dummy main.rs for buildDepsOnly, which cannot boot through the
+            # PS2SDK crt0. build.rs knows this flag and links the throwaway binary without
+            # startup files, leaving the dependency RUSTFLAGS untouched.
+            #
+            # An environment variable rather than a patched build.rs: sandbox files all share
+            # mtime 0, so cargo cannot tell a swapped script out from the real one and would
+            # reuse the stub's output for the actual build.
+            env = {
+              BEVY_PS2_DEPS_ONLY = "1";
+            };
           });
       in
         e.craneLib.buildPackage (commonArgs

@@ -45,6 +45,7 @@ bevy_ecs = { version = "0.20" }
 # PS2 host...
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
+prussia_rt = { path = "vendor/prussia/prussia_rt" }
 
 # prussia_bios = { path = "vendor/prussia/prussia_bios" }
 # prussia_debug = { path = "vendor/prussia/prussia_debug" }

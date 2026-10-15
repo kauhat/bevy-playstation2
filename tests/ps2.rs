@@ -149,6 +149,7 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
 
+    use prussia_rt::cop0::TimerCount;
     use ps2sdk_sys::kernel;
     use ps2sdk_sys::println;
 
@@ -177,17 +178,52 @@ mod tests {
     /// The COP0 count register is what `bevy_ps2`'s hardware-backed time reads.
     #[test_case]
     fn cop0_count_register_ticks() {
-        let start = unsafe { kernel::GetCop0(9) };
+        let start = TimerCount::load().value();
 
         let mut now = start;
         for _ in 0..1_000_000 {
-            now = unsafe { kernel::GetCop0(9) };
+            now = TimerCount::load().value();
             if now != start {
                 break;
             }
         }
 
         assert_ne!(now, start, "COP0 count never advanced");
+    }
+
+    /// Characterises how fast COP0 `Count` runs, so the frequency the game divides by can be
+    /// checked against the hardware instead of taken on faith.
+    ///
+    /// PCSX2 stamps every console line with host wall-clock time, so the gap between the two
+    /// timestamps this prints is roughly the wall time `SAMPLE_TICKS` covers. It is only
+    /// *roughly*: the lines travel over the emulated debug port, which added ~7% of skew when
+    /// this was last read (200000033 ticks in 0.635s, i.e. 315 MHz apparent against 294.912 MHz
+    /// nominal). For a trustworthy number, compare the game's own `[Ns] Total entities` lines
+    /// against their timestamps over tens of seconds instead.
+    #[test_case]
+    fn cop0_count_rate_is_measurable() {
+        // ~0.68s of emulated time at 294.912 MHz: short enough to keep the suite brisk, long
+        // enough that the timestamp resolution is not the limiting factor.
+        const SAMPLE_TICKS: u32 = 200_000_000;
+
+        let start = TimerCount::load().value();
+        println!("rate probe start: count={start}");
+
+        let mut now = start;
+        while now.wrapping_sub(start) < SAMPLE_TICKS {
+            now = TimerCount::load().value();
+        }
+
+        let elapsed = now.wrapping_sub(start);
+        println!("rate probe end: count={now} ({elapsed} ticks)");
+
+        // `Count` is a free runner, so the spin can only overshoot by the handful of ticks the
+        // final read took. A large overshoot means the register is not incrementing at all and
+        // the loop exited for some other reason.
+        assert!(
+            elapsed >= SAMPLE_TICKS && elapsed - SAMPLE_TICKS < 1_000_000,
+            "expected ~{SAMPLE_TICKS} ticks, measured {elapsed}"
+        );
     }
 
     /// The allocator in `harness` is the only thing between `alloc` and a

@@ -14,12 +14,12 @@ use core::ffi::{c_int, c_uint};
 use core::marker::Sync;
 use core::panic::PanicInfo;
 use core::ptr;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use core::time::Duration;
 use linked_list_allocator::LockedHeap;
+use prussia_rt::cop0::TimerCount;
 use ps2sdk_sys::gskit;
 use ps2sdk_sys::gskit::GSGLOBAL;
-use ps2sdk_sys::kernel;
 
 use crate::shared::{BackgroundColor, GameCamera, GameMesh};
 
@@ -132,24 +132,45 @@ impl Plugin for Ps2PlatformPlugin {
 const EE_COP0_CLK_HZ: u64 = 294_912_000;
 
 static LAST_COUNT: AtomicU32 = AtomicU32::new(0);
-static ACCUMULATED_TICKS: AtomicU32 = AtomicU32::new(0); // Use AtomicU64 if needed
+static ACCUMULATED_TICKS: AtomicU64 = AtomicU64::new(0);
 
-// TODO: Can use use prussia_rt instead?
+/// Wall clock, driven by the EE's COP0 `Count` register through `prussia_rt`.
+///
+/// This replaces `ps2sdk_sys::kernel::GetCop0(9)`, which is a real kernel syscall
+/// (`li $v1, 99; syscall` for `__NR_GetCop0`). `Count` is CPU-local, so trapping into
+/// the EE kernel to read it buys nothing and makes the clock unusable from contexts
+/// where a syscall is the wrong thing to do - a panic handler, or an interrupt handler
+/// once there is one. prussia's `_read_timercount` is a leaf `mfc0`.
+///
+/// Returns a monotonically increasing duration, as `Instant::set_elapsed` requires:
+/// `Count` is a 32-bit free runner that wraps every ~14.6s, so the per-read deltas are
+/// accumulated rather than the raw value being scaled.
 fn get_ps2_elapsed() -> Duration {
-    // Read the COP0 Count register (Register 9)
-    let current_count = unsafe { kernel::GetCop0(9) } as u64;
+    let current_count = TimerCount::load().value();
 
-    let last = LAST_COUNT.swap(current_count as u32, Ordering::Relaxed) as u64;
+    let last = LAST_COUNT.swap(current_count, Ordering::Relaxed);
 
-    // Calculate tick difference using wrapping math for 32-bit COP0 count
-    let diff = (current_count as u32).wrapping_sub(last as u32) as u64;
+    // wrapping_sub absorbs the register's own 32-bit wrap.
+    let diff = current_count.wrapping_sub(last) as u64;
 
-    let accumulated = ACCUMULATED_TICKS.fetch_add(diff as u32, Ordering::Relaxed) as u64 + diff;
+    let accumulated = ACCUMULATED_TICKS.fetch_add(diff, Ordering::Relaxed) + diff;
 
-    // Perform math strictly in u64 space
-    let total_nanos = (accumulated * 1_000_000_000) / EE_COP0_CLK_HZ;
+    ticks_to_duration(accumulated)
+}
 
-    Duration::from_nanos(total_nanos)
+/// Converts a COP0 tick count into a [`Duration`].
+///
+/// The whole seconds are split off before scaling: `ticks * 1_000_000_000` overflows
+/// `u64` at a little over 62s of uptime, so a naive multiply-then-divide would wrap the
+/// clock the moment the 32-bit accumulator it replaced would have stopped wrapping it.
+const fn ticks_to_duration(ticks: u64) -> Duration {
+    let seconds = ticks / EE_COP0_CLK_HZ;
+    let sub_ticks = ticks % EE_COP0_CLK_HZ;
+
+    Duration::new(
+        seconds,
+        (sub_ticks * 1_000_000_000 / EE_COP0_CLK_HZ) as u32,
+    )
 }
 
 fn ps2_runner(mut app: App) -> AppExit {

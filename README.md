@@ -16,7 +16,7 @@ The project is split into shared and platform code. the "PC" platform is intende
 * **`src/platform/pc/`**: I haven't done much here yet. Native standard-library Bevy plugins (wgpu, windowing). Attaches Bevy's `Camera3dBundle` / `PbrBundle` to your shared marker components.
 * **`src/platform/playstation2/`**: PS2 hardware backend. Uses a custom runner, allocator, renderer, etc
 * **`crates/ps2sdk-sys/`**: Generated Rust bindings for the PS2SDK (kernel, draw, gskit, common).
-* **`vendor/prussia/`**: Low-level PS2 hardware crates (DMA, INTC, runtime.) I haven't got this to link properly yet but it looks cool.
+* **`vendor/prussia/`**: Low-level PS2 hardware crates (DMA, INTC, runtime). `prussia_rt` is linked in and drives the realtime clock (COP0 `Count`); the rest are vendored but unused.
 * **`scripts/`**: Utilities for packing ISOs and running PCSX2.
 * 
 
@@ -24,7 +24,7 @@ The project is split into shared and platform code. the "PC" platform is intende
 
 
 - [x] #![no_std] Bevy ECS and App loop running fairly happily in PCSX2
-- [x] Hardware-backed time using the EE COP0 Count register.
+- [x] Hardware-backed time using the EE COP0 Count register, read through [prussia]'s `prussia_rt` (was a PS2SDK syscall).
 - [x] Static arena heap allocator (now `linked_list_allocator`).
 - [x] Basic gsKit screen clearing and Bevy Color to PS2 register conversion.
 - [x] Dual-platform component decoupling.

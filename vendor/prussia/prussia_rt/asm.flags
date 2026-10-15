@@ -1,0 +1,1 @@
+-march=r5900 -mabi=n32 -G0 -xgot -EL
