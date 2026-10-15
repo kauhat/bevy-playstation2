@@ -65,6 +65,22 @@ just ps2-debug-elf
 
 isn't that nice?
 
+## Tests
+
+The PS2 tests live in [_tests/ps2.rs_](./tests/ps2.rs), not in `crates/ps2sdk-sys`. They need a machine to run on, and the workspace root is the crate that knows how to link a bootable ELF against the PS2SDK (`build.rs`), while `ps2sdk-sys` is only generated declarations.
+
+```bash
+# Build the tests for the EE and boot them in PCSX2
+just ps2-test
+
+# ... same thing, longer timeout
+PS2_TEST_TIMEOUT=300 just ps2-test
+```
+
+`cargo test` on the PS2 target hands the resulting ELF to `scripts/pcsx2-test-runner.rs` (the target's `runner`), which boots it in PCSX2 headless, mirrors the emulated EE console to your terminal and exits non-zero unless the run printed the pass marker. A panicking assertion is a test failure, same as on the host.
+
+`libtest` needs a filesystem and threads, so on the EE the tests run under a small `#![no_std]` harness in that file (`custom_test_frameworks`) with its own allocator and panic handler. On the host, `tests/ps2.rs` cfgs itself away and `cargo test` reports 0 tests - it's a compile check only.
+
 ## Nix (build/test)
 
 PS2 builds are broken right now. linking? 

@@ -13,6 +13,13 @@ members = [
     "vendor/prussia/prussia_rt",
 ]
 
+# On the PS2 the game is `#![no_std]` + `#![no_main]`, which libtest cannot cope
+# with, so `cargo test` skips this binary. The PS2 test suite is tests/ps2.rs.
+[[bin]]
+name = "bevy-ps2"
+path = "src/main.rs"
+test = false
+
 [dependencies]
 cstr_core = "0.2.6"
 cfg-if = "1.0"

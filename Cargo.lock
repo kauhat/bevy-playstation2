@@ -4639,9 +4639,6 @@ dependencies = [
 [[package]]
 name = "ps2sdk-sys"
 version = "0.1.0"
-dependencies = [
- "cstr_core",
-]
 
 [[package]]
 name = "pxfm"

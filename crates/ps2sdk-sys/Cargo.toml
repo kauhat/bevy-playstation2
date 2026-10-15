@@ -4,13 +4,9 @@ version = "0.1.0"
 edition = "2024"
 links = "ps2sdk"
 
-[dependencies]
-# libc = "0.2"
-cstr_core = "0.2.6"
-
-# [lib]
-# test = false
-
-# [[test]]
-# name = "integration"
-# # harness = false
+# This crate is nothing but generated declarations, so there is nothing worth
+# testing here. Tests that talk to the hardware (or PCSX2) live in the
+# workspace root's `tests/ps2.rs`, which is the crate that knows how to link a
+# bootable ELF against the PS2SDK.
+[lib]
+test = false

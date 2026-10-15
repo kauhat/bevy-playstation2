@@ -12,11 +12,17 @@ default: ps2-run-elf
 # PS2 tasks...
 #
 
+# Cargo, wrapped with the PS2 target + -Zbuild-std settings.
+#
+# PANIC_ABORT_TESTS keeps `cargo test` from switching the test graph to
+# -Cpanic=unwind; without it -Zbuild-std happily builds a second `core` (one
+# abort, one unwind) and every crate then dies with "duplicate lang item".
 ps2-cargo +ARGS="":
     CARGO_BUILD_PROFILE={{ BUILD_MODE }} \
     CARGO_BUILD_TARGET={{ PS2_TARGET }} \
     CARGO_UNSTABLE_BUILD_STD=core,alloc \
     CARGO_UNSTABLE_BUILD_STD_FEATURES=compiler-builtins-mem \
+    CARGO_UNSTABLE_PANIC_ABORT_TESTS=true \
     cargo {{ ARGS }}
 
 # Compile the release ELF binary for PS2
@@ -31,6 +37,10 @@ ps2-pack-iso: ps2-build
     mkdir -p $(dirname "{{ PS2_ISO_PATH }}")
     
     ./scripts/pack-iso.sh "{{ PS2_ELF_PATH }}" "{{ PS2_ISO_PATH }}"
+
+# Build and run the PS2 test suite (tests/ps2.rs) in PCSX2.
+ps2-test:
+    @just ps2-cargo test
 
 # Build and execute directly in PCSX2.
 ps2-run-elf: ps2-build

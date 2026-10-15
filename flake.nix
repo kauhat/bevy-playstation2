@@ -184,7 +184,7 @@
 
           preBuild = ''
             export PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
-            
+
             cp -f ${./mips64el-sony-ps2.json} mips64el-sony-ps2.json
           '';
 
@@ -215,7 +215,7 @@
 
             installPhaseCommand = ''
               mkdir -p $out/bin
-              
+
               cp target/mips64el-sony-ps2/release/bevy-ps2 $out/bin/BOOT.ELF
             '';
           });
