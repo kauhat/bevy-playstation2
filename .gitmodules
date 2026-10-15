@@ -1,0 +1,3 @@
+[submodule "vendor/rerac"]
+	path = vendor/rerac
+	url = git@github.com:re-rac/rerac.git
