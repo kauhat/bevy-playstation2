@@ -70,25 +70,40 @@ extern "C" {
 
 /// Reads CoP0 register `$reg` into a `u32`.
 ///
-/// Call sites spell the whole template out because `asm!` requires a literal and `concat!` does
-/// not produce one. Each one wraps the access in `.set push`/`.set noat`/`.set pop`: LLVM is free
-/// to hand `$at` to us as an operand, and the assembler warns about that unless the macro-expander
-/// reservation is lifted for the instruction.
+/// Reads CoP0 register `$reg` into a `u32`.
+///
+/// `concat!` pastes the register number into the template, so `asm!` still sees one
+/// literal while call sites only have to name the register.
+///
+/// The operand is pinned to `v0` explicitly and named literally in the template:
+/// an explicit-register operand cannot be referenced by `{}`, and pinning it also
+/// keeps LLVM from handing us `$at`, which the assembler warns about for what it
+/// calls the macro-expander reservation. `mfc0`/`mtc0` are real R5900
+/// instructions, so there is no macro anywhere in this to expand.
 macro_rules! cop0_read {
-    ($template:literal) => {{
+    ($reg:literal) => {{
         let value;
         unsafe {
-            asm!($template, out(reg) value, options(nomem, nostack, preserves_flags));
+            asm!(
+                concat!("mfc0 $2, $", $reg),
+                out("$2") value,
+                options(nomem, nostack, preserves_flags),
+            );
         }
         value
     }};
 }
 
-/// Writes a `u32` to CoP0 register `$reg`. See [`cop0_read!`] on why the template is spelled out.
+/// Writes a `u32` to CoP0 register `$reg`. `a0` rather than `v0`, so the two
+/// macros cannot collide if a caller ever nests them.
 macro_rules! cop0_write {
-    ($template:literal, $value:expr) => {
+    ($reg:literal, $value:expr) => {
         unsafe {
-            asm!($template, in(reg) $value, options(nomem, nostack, preserves_flags));
+            asm!(
+                concat!("mtc0 $4, $", $reg),
+                in("$4") $value,
+                options(nomem, nostack, preserves_flags),
+            );
         }
     };
 }
@@ -104,8 +119,7 @@ pub struct BadVAddr(u32);
 impl BadVAddr {
     /// Load a [BadVAddr] from the _CoP0.BadVAddr_ register (`$8`).
     pub fn load() -> Self {
-        BadVAddr(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $8\n                .set pop\n            "))
+        BadVAddr(cop0_read!("8"))
     }
 
     /// Get the address.
@@ -126,8 +140,7 @@ impl TimerCount {
     /// Load a [TimerCount] value from the _CoP0.Count_ register (`$9`).
     #[inline(always)]
     pub fn load() -> Self {
-        TimerCount(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $9\n                .set pop\n            "))
+        TimerCount(cop0_read!("9"))
     }
 
     /// Get the contents of the counter field.
@@ -138,8 +151,7 @@ impl TimerCount {
 
     /// Write [Self] to the _CoP0.Count_ register (`$9`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $9\n                .set pop\n            ", self.0);
+        cop0_write!("9", self.0);
     }
 }
 
@@ -159,14 +171,12 @@ pub struct Compare(u32);
 impl Compare {
     /// Load a [Compare] value from the _CoP0.Compare_ register (`$11`).
     pub fn load() -> Self {
-        Compare(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $11\n                .set pop\n            "))
+        Compare(cop0_read!("11"))
     }
 
     /// Write [Self] to the _CoP0.Compare_ register (`$11`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $11\n                .set pop\n            ", self.0);
+        cop0_write!("11", self.0);
     }
 
     /// Get the contents of the register.
@@ -191,14 +201,12 @@ pub struct EPC(u32);
 impl EPC {
     /// Load an [EPC] value from the _CoP0.EPC_ register (`$14`).
     pub fn load() -> Self {
-        EPC(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $14\n                .set pop\n            "))
+        EPC(cop0_read!("14"))
     }
 
     /// Write [Self] to the _CoP0.EPC_ register (`$14`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $14\n                .set pop\n            ", self.0);
+        cop0_write!("14", self.0);
     }
 
     /// Get the contents of the register.
@@ -217,14 +225,12 @@ pub struct BadPAddr(u32);
 impl BadPAddr {
     /// Load a [BadPAddr] value from the _CoP0.BadPAddr_ register (`$23`).
     pub fn load() -> Self {
-        BadPAddr(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $23\n                .set pop\n            "))
+        BadPAddr(cop0_read!("23"))
     }
 
     /// Write [Self] to the _CoP0.BadPAddr_ register (`$23`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $23\n                .set pop\n            ", self.0);
+        cop0_write!("23", self.0);
     }
 
     /// Get the contents of the register.
@@ -245,14 +251,12 @@ pub struct ErrorEPC(u32);
 impl ErrorEPC {
     /// Load an [ErrorEPC] value from _CoP0.ErrorEPC_ register (`$30`).
     pub fn load() -> Self {
-        ErrorEPC(cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $30\n                .set pop\n            "))
+        ErrorEPC(cop0_read!("30"))
     }
 
     /// Write [Self] to the _CoP0.ErrorEPC_ register (`$30`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $30\n                .set pop\n            ", self.0);
+        cop0_write!("30", self.0);
     }
 
     /// Get the contents of the register.
@@ -558,15 +562,13 @@ impl Status {
     /// Load the contents of the CoP0.Status register (`$12`).
     pub fn load() -> Self {
         Status {
-            bits: cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $12\n                .set pop\n            "),
+            bits: cop0_read!("12"),
         }
     }
 
     /// Store this object to the CoP0.Status register (`$12`).
     pub fn store(self) {
-        cop0_write!("
-                .set push\n                .set noat\n                mtc0 {}, $12\n                .set pop\n            ", self.bits);
+        cop0_write!("12", self.bits);
     }
 }
 
@@ -596,8 +598,7 @@ impl Cause {
     /// Load the contents of the CoP0.Cause register (`$13`).
     pub fn load() -> Self {
         Cause {
-            bits: cop0_read!("
-                .set push\n                .set noat\n                mfc0 {}, $13\n                .set pop\n            "),
+            bits: cop0_read!("13"),
         }
     }
 }
