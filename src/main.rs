@@ -2,6 +2,13 @@
 #![cfg_attr(target_vendor = "sony", no_main)]
 #![feature(breakpoint)]
 #![allow(unused)]
+// Every line `#[warn(linker_messages)]` forwarded for this binary belonged to ps2sdk
+// or to rustc's bundled `cc` seeds, not to this crate - sources this target cannot
+// influence. Suppressed rather than left on, purely because 374 repeated lines hide
+// everything around them. A genuinely new link problem would still be fatal (that is
+// `ld`'s exit status, not this lint), and its text would appear on stderr next to the
+// suppressions, unhidden.
+#![cfg_attr(target_vendor = "sony", allow(linker_messages))]
 
 #[cfg(target_vendor = "sony")]
 #[macro_use]

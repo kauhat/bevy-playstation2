@@ -265,6 +265,9 @@ impl<DEVICE: devices::Address, T: 'static> Transfer<DEVICE, T> {
     }
 }
 
+/// Tests exercising the DMA controller against a running PS2.
+///
+/// Not `#[cfg(test)]`: these are compiled into the library's own `--test` harness.
 mod tests {
     use aligned::{Aligned, A16};
 
@@ -272,10 +275,52 @@ mod tests {
     use crate::Transfer;
     use crate::{Gif, IpuFrom, IpuTo, Sif0, Vif0, Vif1};
 
+    /// Handshakes `DATA` to `fill` for the lifetime of the call.
+    ///
+    /// `Transfer::{from_mem,to_mem}` demand a `&'static mut`, which a local cannot
+    /// produce, so the buffer has to live somewhere permanent. Writing the
+    /// `static mut DATA` and taking `&mut DATA` directly is what the edition 2024
+    /// `static_mut_refs` warning is about: forming a reference to a mutable static
+    /// lets *other* references to it coexist, which is UB.
+    ///
+    /// Building the reference from a raw pointer does not mutate the static, so it
+    /// sidesteps that lint. The guarantee the old form relied on is stated instead:
+    /// **every one of these tests runs on a single thread, sequentially, and only
+    /// one transfer is outstanding at a time**, so no interior mutability, no lock
+    /// and no `unsafe impl Sync` is warranted.
+    pub(crate) unsafe fn with_buffer<R>(
+        data: &'static mut Aligned<A16, [u32; 4]>,
+        fill: impl FnOnce(&'static mut Aligned<A16, [u32; 4]>) -> R,
+    ) -> R {
+        data.fill(0);
+        fill(data)
+    }
+
+    /// Takes the one `&'static mut` to a fixture buffer.
+    ///
+    /// Centralising this keeps the `addr_of_mut!` in a single place instead of
+    /// scattered through five tests, each of which would otherwise need its own
+    /// justification.
+    ///
+    /// # Safety
+    ///
+    /// `data` must point at one of this module's `static mut` fixtures, and the
+    /// caller must not create a second live reference to it.
+    unsafe fn borrow_buffer(
+        data: *mut Aligned<A16, [u32; 4]>,
+    ) -> &'static mut Aligned<A16, [u32; 4]> {
+        unsafe { &mut *data }
+    }
+
     fn test_vif0(vif0: Vif0) -> Vif0 {
         static mut DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
 
-        let dma = Transfer::from_mem(vif0, unsafe { &mut DATA });
+        // SAFETY: single-threaded, sequential tests, and this is the only reference
+        // to DATA for the transfer's lifetime.
+        let dma = unsafe {
+            let data = borrow_buffer(&raw mut DATA);
+            with_buffer(data, |buffer| Transfer::from_mem(vif0, buffer))
+        };
         let (vif0, _) = dma.wait();
 
         vif0
@@ -284,10 +329,18 @@ mod tests {
     fn test_vif1(vif1: Vif1) -> Vif1 {
         static mut DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
 
-        let dma = Transfer::from_mem(vif1, unsafe { &mut DATA });
+        // SAFETY: as above. A second reference is taken only after the first
+        // transfer has completed and been waited on.
+        let dma = unsafe {
+            let data = borrow_buffer(&raw mut DATA);
+            with_buffer(data, |buffer| Transfer::from_mem(vif1, buffer))
+        };
         let (vif1, _) = dma.wait();
 
-        let dma = Transfer::to_mem(vif1, unsafe { &mut DATA });
+        let dma = unsafe {
+            let data = borrow_buffer(&raw mut DATA);
+            with_buffer(data, |buffer| Transfer::to_mem(vif1, buffer))
+        };
         let (vif1, _) = dma.wait();
 
         vif1
@@ -296,7 +349,11 @@ mod tests {
     fn test_gif(gif: Gif) -> Gif {
         static mut DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
 
-        let dma = Transfer::from_mem(gif, unsafe { &mut DATA });
+        // SAFETY: as above.
+        let dma = unsafe {
+            let data = borrow_buffer(&raw mut DATA);
+            with_buffer(data, |buffer| Transfer::from_mem(gif, buffer))
+        };
         let (gif, _) = dma.wait();
 
         gif
@@ -306,8 +363,15 @@ mod tests {
         static mut READ_DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
         static mut WRITE_DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
 
-        let dma_to = Transfer::from_mem(ipu_to, unsafe { &mut READ_DATA });
-        let dma_from = Transfer::to_mem(ipu_from, unsafe { &mut WRITE_DATA });
+        // SAFETY: as above, with one reference to each of two distinct statics.
+        let (dma_to, dma_from) = unsafe {
+            let read = borrow_buffer(&raw mut READ_DATA);
+            let write = borrow_buffer(&raw mut WRITE_DATA);
+            (
+                with_buffer(read, |buffer| Transfer::from_mem(ipu_to, buffer)),
+                with_buffer(write, |buffer| Transfer::to_mem(ipu_from, buffer)),
+            )
+        };
 
         // Multiple transfers at once for fun and profit.
         // Note the separate read and write buffers; using the same buffer for multiple
@@ -322,7 +386,11 @@ mod tests {
     fn test_sif0(sif0: Sif0) -> Sif0 {
         static mut DATA: Aligned<A16, [u32; 4]> = Aligned([0u32; 4]);
 
-        let dma = Transfer::to_mem(sif0, unsafe { &mut DATA });
+        // SAFETY: as above.
+        let dma = unsafe {
+            let data = borrow_buffer(&raw mut DATA);
+            with_buffer(data, |buffer| Transfer::to_mem(sif0, buffer))
+        };
         let (sif0, _) = dma.wait();
 
         sif0

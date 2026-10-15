@@ -21,7 +21,7 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
-cstr_core = "0.2.6"
+#cstr_core = "0.2.6"
 cfg-if = "1.0"
 
 # # Shared dependencies...
