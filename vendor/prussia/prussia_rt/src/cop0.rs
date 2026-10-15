@@ -70,10 +70,10 @@ extern "C" {
 
 /// Reads CoP0 register `$reg` into a `u32`.
 ///
-/// The call sites spell the whole template out because `asm!` requires a literal and `concat!`
-/// does not produce one. `mfc0`/`mtc0` are ordinary instructions rather than assembler macros, so
-/// unlike the `.set noat` scaffolding the out-of-line assembly used to carry, nothing here needs
-/// to keep the allocator off `$at`.
+/// Call sites spell the whole template out because `asm!` requires a literal and `concat!` does
+/// not produce one. Each one wraps the access in `.set push`/`.set noat`/`.set pop`: LLVM is free
+/// to hand `$at` to us as an operand, and the assembler warns about that unless the macro-expander
+/// reservation is lifted for the instruction.
 macro_rules! cop0_read {
     ($template:literal) => {{
         let value;
@@ -104,7 +104,14 @@ pub struct BadVAddr(u32);
 impl BadVAddr {
     /// Load a [BadVAddr] from the _CoP0.BadVAddr_ register (`$8`).
     pub fn load() -> Self {
-        BadVAddr(cop0_read!("mfc0 {}, $8"))
+        BadVAddr(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $8\n                .set pop\n            "))
+    }
+
+    /// Get the address.
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
     }
 }
 
@@ -119,7 +126,8 @@ impl TimerCount {
     /// Load a [TimerCount] value from the _CoP0.Count_ register (`$9`).
     #[inline(always)]
     pub fn load() -> Self {
-        TimerCount(cop0_read!("mfc0 {}, $9"))
+        TimerCount(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $9\n                .set pop\n            "))
     }
 
     /// Get the contents of the counter field.
@@ -130,7 +138,15 @@ impl TimerCount {
 
     /// Write [Self] to the _CoP0.Count_ register (`$9`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $9", self.0);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $9\n                .set pop\n            ", self.0);
+    }
+}
+
+impl From<u32> for TimerCount {
+    /// Builds a [TimerCount] to write, without reading the register first.
+    fn from(value: u32) -> Self {
+        TimerCount(value)
     }
 }
 
@@ -143,12 +159,27 @@ pub struct Compare(u32);
 impl Compare {
     /// Load a [Compare] value from the _CoP0.Compare_ register (`$11`).
     pub fn load() -> Self {
-        Compare(cop0_read!("mfc0 {}, $11"))
+        Compare(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $11\n                .set pop\n            "))
     }
 
     /// Write [Self] to the _CoP0.Compare_ register (`$11`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $11", self.0);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $11\n                .set pop\n            ", self.0);
+    }
+
+    /// Get the contents of the register.
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
+    }
+}
+
+/// Builds a [Compare] to write, without reading the register first.
+impl From<u32> for Compare {
+    fn from(value: u32) -> Self {
+        Compare(value)
     }
 }
 
@@ -160,12 +191,20 @@ pub struct EPC(u32);
 impl EPC {
     /// Load an [EPC] value from the _CoP0.EPC_ register (`$14`).
     pub fn load() -> Self {
-        EPC(cop0_read!("mfc0 {}, $14"))
+        EPC(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $14\n                .set pop\n            "))
     }
 
     /// Write [Self] to the _CoP0.EPC_ register (`$14`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $14", self.0);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $14\n                .set pop\n            ", self.0);
+    }
+
+    /// Get the contents of the register.
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
     }
 }
 
@@ -178,12 +217,20 @@ pub struct BadPAddr(u32);
 impl BadPAddr {
     /// Load a [BadPAddr] value from the _CoP0.BadPAddr_ register (`$23`).
     pub fn load() -> Self {
-        BadPAddr(cop0_read!("mfc0 {}, $23"))
+        BadPAddr(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $23\n                .set pop\n            "))
     }
 
     /// Write [Self] to the _CoP0.BadPAddr_ register (`$23`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $23", self.0);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $23\n                .set pop\n            ", self.0);
+    }
+
+    /// Get the contents of the register.
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
     }
 }
 
@@ -198,12 +245,20 @@ pub struct ErrorEPC(u32);
 impl ErrorEPC {
     /// Load an [ErrorEPC] value from _CoP0.ErrorEPC_ register (`$30`).
     pub fn load() -> Self {
-        ErrorEPC(cop0_read!("mfc0 {}, $30"))
+        ErrorEPC(cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $30\n                .set pop\n            "))
     }
 
     /// Write [Self] to the _CoP0.ErrorEPC_ register (`$30`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $30", self.0);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $30\n                .set pop\n            ", self.0);
+    }
+
+    /// Get the contents of the register.
+    #[inline(always)]
+    pub fn value(&self) -> u32 {
+        self.0
     }
 }
 
@@ -403,6 +458,16 @@ impl From<PerfCounterControl> for PCCREvent1 {
     }
 }
 
+impl From<u32> for PerfCounter {
+    /// Builds a [PerfCounter] to write, without reading the register first.
+    ///
+    /// Without this, `store_pcr0`/`store_pcr1` are unusable: the only constructors
+    /// were the loaders, so there was no way to say *what* to store.
+    fn from(value: u32) -> Self {
+        PerfCounter(value)
+    }
+}
+
 /// Represents a value from the _Cop0.PCR0/1_ performance counter registers.
 #[derive(Debug)]
 #[repr(transparent)]
@@ -493,13 +558,15 @@ impl Status {
     /// Load the contents of the CoP0.Status register (`$12`).
     pub fn load() -> Self {
         Status {
-            bits: cop0_read!("mfc0 {}, $12"),
+            bits: cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $12\n                .set pop\n            "),
         }
     }
 
     /// Store this object to the CoP0.Status register (`$12`).
     pub fn store(self) {
-        cop0_write!("mtc0 {}, $12", self.bits);
+        cop0_write!("
+                .set push\n                .set noat\n                mtc0 {}, $12\n                .set pop\n            ", self.bits);
     }
 }
 
@@ -529,7 +596,8 @@ impl Cause {
     /// Load the contents of the CoP0.Cause register (`$13`).
     pub fn load() -> Self {
         Cause {
-            bits: cop0_read!("mfc0 {}, $13"),
+            bits: cop0_read!("
+                .set push\n                .set noat\n                mfc0 {}, $13\n                .set pop\n            "),
         }
     }
 }

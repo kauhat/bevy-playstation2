@@ -167,10 +167,7 @@ const fn ticks_to_duration(ticks: u64) -> Duration {
     let seconds = ticks / EE_COP0_CLK_HZ;
     let sub_ticks = ticks % EE_COP0_CLK_HZ;
 
-    Duration::new(
-        seconds,
-        (sub_ticks * 1_000_000_000 / EE_COP0_CLK_HZ) as u32,
-    )
+    Duration::new(seconds, (sub_ticks * 1_000_000_000 / EE_COP0_CLK_HZ) as u32)
 }
 
 fn ps2_runner(mut app: App) -> AppExit {

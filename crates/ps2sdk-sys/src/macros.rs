@@ -17,7 +17,10 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => {
-        $crate::macros::print!("\r\n");
+        // `$crate::print!`, not `$crate::macros::print!`: `print!` is `#[macro_export]`ed, so it
+        // lives at the crate root rather than in the module that defines it. The old path only
+        // ever failed, and only for the no-argument form, which nothing had called yet.
+        $crate::print!("\r\n");
     };
     ($($arg:tt)*) => {
         $crate::macros::_printdebug(core::format_args!($($arg)*));
