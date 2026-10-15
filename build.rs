@@ -25,8 +25,6 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINKFILE");
     println!("cargo:rerun-if-env-changed=DEP_PS2SDK_LINK_GROUP");
-    println!("cargo:rerun-if-env-changed=DEP_PRUSSIA_RT_LINK_SEARCH");
-    println!("cargo:rerun-if-env-changed=DEP_PRUSSIA_RT_LINK_LIB");
 
     if let Ok(linkfile) = env::var("DEP_PS2SDK_LINKFILE") {
         println!("cargo:rustc-link-arg=-T{linkfile}");
@@ -34,19 +32,5 @@ fn main() {
 
     if let Ok(link_group) = env::var("DEP_PS2SDK_LINK_GROUP") {
         println!("cargo:rustc-link-arg={link_group}");
-    }
-
-    // PruSSia's assembly helpers (CoP0 register access, atomic 64-bit load/store).
-    //
-    // `prussia_rt`'s build script already asks for `-lprussia-rt`, but cargo puts a dependency's
-    // native libraries ahead of the objects that reference them, and GNU ld only scans an archive
-    // once. Re-emitting it as a link arg lands it at the end of the linker's library list, which
-    // is the same trick the PS2SDK library group above uses.
-    if let (Ok(search), Ok(lib)) = (
-        env::var("DEP_PRUSSIA_RT_LINK_SEARCH"),
-        env::var("DEP_PRUSSIA_RT_LINK_LIB"),
-    ) {
-        println!("cargo:rustc-link-search=native={search}");
-        println!("cargo:rustc-link-arg=-Wl,-Bstatic,-l{lib},-Bdynamic");
     }
 }

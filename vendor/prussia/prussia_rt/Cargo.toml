@@ -4,8 +4,10 @@ version = "0.4.2"
 license = "MIT OR Apache-2.0"
 authors = ["Dan Ravensloft <dan.ravensloft@gmail.com>"]
 edition = "2018"
-links = "prussia_rt"
+
+# No `links` key and no build script: the crate used to assemble `src/*.S` into a
+# `libprussia-rt.a` archive and advertise its location through `links` metadata. The CoP0 and
+# 64-bit load/store helpers are inline asm now, so there is nothing to build or link by hand.
 
 [dependencies]
 bitflags = "1.0.4"
-r0 = "0.2.2"

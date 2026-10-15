@@ -1,27 +1,96 @@
 //! Coprocessor 0 manipulation routines.
 
-use core::arch::{asm, global_asm};
+use core::arch::asm;
 
 use bitflags::bitflags;
 
+// The R5900 performance counter registers are reached through `mfps`/`mtps`/`mfpc`/`mtpc`,
+// instructions LLVM's assembler does not know (it suggests `mfc0`/`mfc2` instead). They are
+// CoP0-major opcodes like everything else here, so the words below are exactly what GNU as
+// emits for them; `mips64r5900el-ps2-elf-as` plus `objdump -d` regenerates the list.
+//
+// These six stay hand-written rather than becoming inline asm with allocated operands because the
+// instruction word names a fixed register: `$2` for the reads, `$4` for the writes.
+//
+// `.set noreorder` keeps the `nop` in the branch delay slot where it was written, and each routine
+// is terminated by `jr $ra` so it is a leaf with no frame.
+core::arch::global_asm!(
+    "
+    .set push
+    .set noreorder
+
+    .global _read_pccr
+_read_pccr:
+    .word 0x4002c800      // mfps v0, 0
+    jr  $ra
+    nop
+
+    .global _read_pcr0
+_read_pcr0:
+    .word 0x4002c801      // mfpc v0, 0
+    jr  $ra
+    nop
+
+    .global _read_pcr1
+_read_pcr1:
+    .word 0x4002c803      // mfpc v0, 1
+    jr  $ra
+    nop
+
+    .global _write_pccr
+_write_pccr:
+    .word 0x4084c800      // mtps a0, 0
+    jr  $ra
+    nop
+
+    .global _write_pcr0
+_write_pcr0:
+    .word 0x4084c801      // mtpc a0, 0
+    jr  $ra
+    nop
+
+    .global _write_pcr1
+_write_pcr1:
+    .word 0x4084c803      // mtpc a0, 1
+    jr  $ra
+    nop
+
+    .set pop
+"
+);
+
 extern "C" {
-    fn _read_badvaddr() -> u32;
-    fn _read_timercount() -> u32;
-    fn _write_timercount(count: u32);
-    fn _read_compare() -> u32;
-    fn _write_compare(compare: u32);
-    fn _read_epc() -> u32;
-    fn _write_epc(epc: u32);
-    fn _read_badpaddr() -> u32;
-    fn _write_badpaddr(badpaddr: u32);
-    fn _read_errorepc() -> u32;
-    fn _write_errorepc(errorepc: u32);
     fn _read_pccr() -> u32;
-    fn _write_pccr(pccr: u32);
     fn _read_pcr0() -> u32;
     fn _read_pcr1() -> u32;
-    fn _write_pcr0(pcr0: u32);
-    fn _write_pcr1(pcr1: u32);
+    fn _write_pccr(value: u32);
+    fn _write_pcr0(value: u32);
+    fn _write_pcr1(value: u32);
+}
+
+/// Reads CoP0 register `$reg` into a `u32`.
+///
+/// The call sites spell the whole template out because `asm!` requires a literal and `concat!`
+/// does not produce one. `mfc0`/`mtc0` are ordinary instructions rather than assembler macros, so
+/// unlike the `.set noat` scaffolding the out-of-line assembly used to carry, nothing here needs
+/// to keep the allocator off `$at`.
+macro_rules! cop0_read {
+    ($template:literal) => {{
+        let value;
+        unsafe {
+            asm!($template, out(reg) value, options(nomem, nostack, preserves_flags));
+        }
+        value
+    }};
+}
+
+/// Writes a `u32` to CoP0 register `$reg`. See [`cop0_read!`] on why the template is spelled out.
+macro_rules! cop0_write {
+    ($template:literal, $value:expr) => {
+        unsafe {
+            asm!($template, in(reg) $value, options(nomem, nostack, preserves_flags));
+        }
+    };
 }
 
 /// A virtual address responsible for either of the below exceptions:
@@ -33,29 +102,27 @@ extern "C" {
 pub struct BadVAddr(u32);
 
 impl BadVAddr {
-    /// Load a [BadVAddr] from the _CoP0.BadVAddr_ register (`$12`)
+    /// Load a [BadVAddr] from the _CoP0.BadVAddr_ register (`$8`).
     pub fn load() -> Self {
-        let bad_v_addr = unsafe { _read_badvaddr() };
-
-        BadVAddr(bad_v_addr)
+        BadVAddr(cop0_read!("mfc0 {}, $8"))
     }
 }
 
-/// A value read from the CoP0.Status register. The register increments every CPU clock cycle.
-/// This register, when equal to the CoP0.Compare register, signals a timer interrupt.
-/// FIXME: Pick a method, discard the other.
+/// A value read from the CoP0.Count register (`$9`).
+///
+/// The register increments every CPU clock cycle. When it equals the CoP0.Compare register, it
+/// signals a timer interrupt.
 #[derive(Debug)]
 pub struct TimerCount(u32);
 
 impl TimerCount {
     /// Load a [TimerCount] value from the _CoP0.Count_ register (`$9`).
+    #[inline(always)]
     pub fn load() -> Self {
-        let count = unsafe { _read_timercount() };
-
-        TimerCount(count)
+        TimerCount(cop0_read!("mfc0 {}, $9"))
     }
 
-    /// Get the contents of the counter field
+    /// Get the contents of the counter field.
     #[inline(always)]
     pub fn value(&self) -> u32 {
         self.0
@@ -63,7 +130,7 @@ impl TimerCount {
 
     /// Write [Self] to the _CoP0.Count_ register (`$9`).
     pub fn store(self) {
-        unsafe { _write_timercount(self.0) }
+        cop0_write!("mtc0 {}, $9", self.0);
     }
 }
 
@@ -76,14 +143,12 @@ pub struct Compare(u32);
 impl Compare {
     /// Load a [Compare] value from the _CoP0.Compare_ register (`$11`).
     pub fn load() -> Self {
-        let compare = unsafe { _read_compare() };
-
-        Compare(compare)
+        Compare(cop0_read!("mfc0 {}, $11"))
     }
 
     /// Write [Self] to the _CoP0.Compare_ register (`$11`).
     pub fn store(self) {
-        unsafe { _write_compare(self.0) }
+        cop0_write!("mtc0 {}, $11", self.0);
     }
 }
 
@@ -95,54 +160,50 @@ pub struct EPC(u32);
 impl EPC {
     /// Load an [EPC] value from the _CoP0.EPC_ register (`$14`).
     pub fn load() -> Self {
-        let epc = unsafe { _read_epc() };
-
-        EPC(epc)
+        EPC(cop0_read!("mfc0 {}, $14"))
     }
 
     /// Write [Self] to the _CoP0.EPC_ register (`$14`).
     pub fn store(self) {
-        unsafe { _write_epc(self.0) }
+        cop0_write!("mtc0 {}, $14", self.0);
     }
 }
 
-/// A physical address read from the CoP0.BadPAddr register. The value is automatically set to the
-/// most recent physical address that caused a bus error (assuming bus error masking (Status.BEM) is disabled).
+/// A physical address read from CoP0.BadPAddr. The value is automatically set to the
+/// most recent physical address that caused a bus error (assuming bus error masking (Status.BEM)
+/// is disabled).
 #[derive(Debug)]
 pub struct BadPAddr(u32);
 
 impl BadPAddr {
     /// Load a [BadPAddr] value from the _CoP0.BadPAddr_ register (`$23`).
     pub fn load() -> Self {
-        let badpaddr = unsafe { _read_badpaddr() };
-
-        BadPAddr(badpaddr)
+        BadPAddr(cop0_read!("mfc0 {}, $23"))
     }
 
     /// Write [Self] to the _CoP0.BadPAddr_ register (`$23`).
     pub fn store(self) {
-        unsafe { _write_badpaddr(self.0) }
+        cop0_write!("mtc0 {}, $23", self.0);
     }
 }
 
-/// A virtual address read from the CoP0.ErrorEPC register. The value is a return address set when
+/// A virtual address read from CoP0.ErrorEPC. The value is a return address set when
 /// an NMI, debug, or counter exception occurs and is handled. The address normally points to the
-/// instruction which generated the error. If the instruction is in a branch delay slot, the address
-/// is set to the branch instruction prior to the erroring instruction (indicated by Cause.BD2 being set to 1).
+/// instruction which generated the error. If the instruction is in a branch delay slot, the
+/// address is set to the branch instruction prior to the erroring instruction (indicated by
+/// Cause.BD2 being set to 1).
 #[derive(Debug)]
 pub struct ErrorEPC(u32);
 
 impl ErrorEPC {
     /// Load an [ErrorEPC] value from _CoP0.ErrorEPC_ register (`$30`).
     pub fn load() -> Self {
-        let errorepc = unsafe { _read_errorepc() };
-
-        ErrorEPC(errorepc)
+        ErrorEPC(cop0_read!("mfc0 {}, $30"))
     }
 
     /// Write [Self] to the _CoP0.ErrorEPC_ register (`$30`).
     pub fn store(self) {
-        unsafe { _write_errorepc(self.0) }
+        cop0_write!("mtc0 {}, $30", self.0);
     }
 }
 
@@ -177,17 +238,12 @@ bitflags! {
 impl PerfCounterControl {
     /// Load a [PerfCounterControl] value from the _CoP0.PCCR_ register (via `mfps`).
     pub fn load() -> Self {
-        let control = unsafe { _read_pccr() };
-
-        PerfCounterControl::from_bits_truncate(control)
+        PerfCounterControl::from_bits_truncate(unsafe { _read_pccr() })
     }
 
     /// Write [Self] to the _CoP0.PCCR_ register (via `mtps`).
     pub fn store(self) {
-        let control = self.bits;
-        unsafe {
-            _write_pccr(control);
-        }
+        unsafe { _write_pccr(self.bits) };
     }
 }
 
@@ -319,7 +375,8 @@ impl From<PCCREvent1> for PerfCounterControl {
 
 impl From<PerfCounterControl> for PCCREvent1 {
     fn from(value: PerfCounterControl) -> Self {
-        let bits: u32 = (value & PerfCounterControl::EVENT0).bits >> 5;
+        // EVENT1, not EVENT0: the field lives at bit 15.
+        let bits: u32 = (value & PerfCounterControl::EVENT1).bits >> 15;
 
         match bits {
             0 => Self::IssuesLowOrderBranch,
@@ -339,13 +396,14 @@ impl From<PerfCounterControl> for PCCREvent1 {
             14 => Self::CompletesCop1Instruction,
             15 => Self::CompletesStores,
             16 => Self::NoEvent,
-            i if i > 16 && i < 32 => Self::Reserved,
+            17 => Self::Reserved,
+            i if i > 17 && i < 32 => Self::Reserved,
             _ => Self::NoEvent,
         }
     }
 }
 
-/// Represents a value from the _Cop0.PCR0/1_ Performance Counter registers.
+/// Represents a value from the _Cop0.PCR0/1_ performance counter registers.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct PerfCounter(u32);
@@ -356,10 +414,10 @@ impl PerfCounter {
     /// Mask for the VALUE field.
     pub const VALUE: u32 = u32::MAX >> 1;
 
-    /// Check if the OVFL bit is enabled.
+    /// Check if the OVFL bit is set.
     #[inline(always)]
     pub fn is_ovfl(&self) -> bool {
-        self.0 & Self::OVFL == 1
+        self.0 & Self::OVFL != 0
     }
 
     /// Get the contents of the VALUE field.
@@ -370,26 +428,22 @@ impl PerfCounter {
 
     /// Load a [PerfCounter] value from the _CoP0.PCR0_ register (via `mfpc`).
     pub fn load_pcr0() -> Self {
-        let pcr0 = unsafe { _read_pcr0() };
-
-        PerfCounter(pcr0)
+        PerfCounter(unsafe { _read_pcr0() })
     }
 
     /// Load a [PerfCounter] value from the _CoP0.PCR1_ register (via `mfpc`).
     pub fn load_pcr1() -> Self {
-        let pcr1 = unsafe { _read_pcr1() };
-
-        PerfCounter(pcr1)
+        PerfCounter(unsafe { _read_pcr1() })
     }
 
     /// Write [Self] to the _CoP0.PCR0_ register (via `mtpc`).
     pub fn store_pcr0(self) {
-        unsafe { _write_pcr0(self.0) }
+        unsafe { _write_pcr0(self.0) };
     }
 
     /// Write [Self] to the _CoP0.PCR1_ register (via `mtpc`).
     pub fn store_pcr1(self) {
-        unsafe { _write_pcr1(self.0) }
+        unsafe { _write_pcr1(self.0) };
     }
 }
 
@@ -436,18 +490,16 @@ bitflags! {
 }
 
 impl Status {
-    /// Load the contents of the Coprocessor 0 Status register, returning a Status type with the
-    /// value of Status.
+    /// Load the contents of the CoP0.Status register (`$12`).
     pub fn load() -> Self {
-        let status;
-        unsafe { asm!(".set noat; mfc0 {}, $12", out(reg) status) };
-
-        Status { bits: status }
+        Status {
+            bits: cop0_read!("mfc0 {}, $12"),
+        }
     }
 
-    /// Store this object to the Coprocessor 0 Status register.
+    /// Store this object to the CoP0.Status register (`$12`).
     pub fn store(self) {
-        unsafe { asm!("mtc0 {}, $12", in(reg) self.bits) };
+        cop0_write!("mtc0 {}, $12", self.bits);
     }
 }
 
@@ -474,13 +526,11 @@ bitflags! {
 }
 
 impl Cause {
-    /// Load the contents of the Coprocessor 0 Cause register, returning a Cause type with the
-    /// value of Cause.
+    /// Load the contents of the CoP0.Cause register (`$13`).
     pub fn load() -> Self {
-        let cause;
-        unsafe { asm!(".set noat; mfc0 {}, $13", out(reg) cause) };
-
-        Cause { bits: cause }
+        Cause {
+            bits: cop0_read!("mfc0 {}, $13"),
+        }
     }
 }
 
@@ -499,9 +549,9 @@ pub enum L1Exception {
     TlbInvalidLoad,
     /// A TLB page marked not Valid (not mapped) was written to.
     TlbInvalidStore,
-    /// An address error occurred while loading data or instructions from memory.
+    /// An address error occurred while loading data or instructions.
     AddrErrLoad,
-    /// An address error occurred while storing data to memory.
+    /// An address error occurred while storing data or instructions.
     AddrErrStore,
     /// A bus error occurred while loading instructions.
     InsnBusError,
@@ -522,7 +572,7 @@ pub enum L1Exception {
 }
 
 impl L1Exception {
-    /// Convert a L1 exception code in the TLB Miss exception handler.
+    /// Convert an L1 exception code in the TLB Miss exception handler.
     /// This function returns Option, but if it fails, you're passing in the wrong value.
     pub fn try_from_tlbmiss(x: u8) -> Option<Self> {
         match x {
@@ -532,8 +582,8 @@ impl L1Exception {
         }
     }
 
-    /// Convert a L1 exception code in the Common exception handler.
-    /// This function rturns Option, but if it fails, you're passing in the wrong value.
+    /// Convert an L1 exception code in the common exception handler.
+    /// This function returns Option, but if it fails, you're passing in the wrong value.
     pub fn try_from_common(x: u8) -> Option<Self> {
         match x {
             1 => Some(L1Exception::TlbModified),
@@ -568,7 +618,7 @@ pub enum L2Exception {
 }
 
 impl L2Exception {
-    /// Convert a level 2 exception code in the Reset handler.
+    /// Convert an L2 exception code in the Reset handler.
     pub fn try_from_reset(x: u8) -> Option<Self> {
         match x {
             0 => Some(L2Exception::Reset),
@@ -577,7 +627,7 @@ impl L2Exception {
         }
     }
 
-    /// Convert a level 2 exception code in the Performance Counter handler.
+    /// Convert an L2 exception code in the Performance Counter handler.
     pub fn try_from_counter(x: u8) -> Option<Self> {
         match x {
             2 => Some(L2Exception::PerfCounter),
@@ -585,7 +635,7 @@ impl L2Exception {
         }
     }
 
-    /// Convert a level 2 exception code in the Debug handler.
+    /// Convert an L2 exception code in the Debug handler.
     pub fn try_from_debug(x: u8) -> Option<Self> {
         match x {
             4 => Some(L2Exception::Debug),
