@@ -32,5 +32,9 @@ pub mod draw {
     include!("bindings/draw.rs");
 }
 
+pub mod fileio {
+    include!("bindings/fileio.rs");
+}
+
 // #[macro_use]
 pub mod macros;

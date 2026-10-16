@@ -1,3 +1,6 @@
 [submodule "vendor/rerac"]
 	path = vendor/rerac
 	url = git@github.com:re-rac/rerac.git
+[submodule "vendor/rac1-decomp"]
+	path = vendor/rac1-decomp
+	url = git@github.com:OpenRAC/rac1-decomp.git

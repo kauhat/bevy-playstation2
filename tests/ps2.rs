@@ -220,6 +220,7 @@ mod harness {
 #[cfg(target_vendor = "sony")]
 #[unsafe(no_mangle)]
 pub extern "C" fn main(_argc: i32, _argv: *const *const u8) -> i32 {
+    fileio::remember_argv0(_argv);
     harness::init();
     ps2sdk_sys::println!("--- bevy-ps2 integration tests ---");
 
@@ -239,6 +240,60 @@ mod smoke {
     #[test_case]
     fn console_output_reaches_the_log() {
         ps2sdk_sys::println!("hello from the Emotion Engine");
+    }
+}
+
+/// The `fileio` bindings (`ps2sdk_sys::fileio`).
+///
+/// PCSX2's `host:` device only serves the ELF it loaded: every other name opens as EIO (-5), whether the file is there or
+/// not (checked against files staged beside the ELF). So run-time data cannot come from `host:` in this emulator, and the
+/// level data is embedded instead (`build/fixtures.rs`). These checks cover what the emulator does serve: the call path
+/// through `fioOpen`/`fioLseek`/`fioRead`/`fioClose`, the `host:` ELF opening, and the EIO for a missing file.
+mod fileio {
+    use ps2sdk_sys::fileio::{fioClose, fioInit, fioLseek, fioOpen, fioRead, FIO_O_RDONLY, FIO_SEEK_END, FIO_SEEK_SET};
+
+    #[test_case]
+    fn missing_host_file_fails_with_eio() {
+        unsafe {
+            fioInit();
+            check_eq!(fioOpen(c"host:no-such-file.txt".as_ptr(), FIO_O_RDONLY as i32), -5, "missing host file");
+        }
+    }
+
+    use core::sync::atomic::{AtomicPtr, Ordering};
+    use core::ptr;
+
+    static ARGV0: AtomicPtr<u8> = AtomicPtr::new(ptr::null_mut());
+
+    /// `argv[0]` is the path the loader gave the ELF: `host:<name>`, which is the one file `host:` serves.
+    pub fn remember_argv0(argv: *const *const u8) {
+        if argv.is_null() {
+            return;
+        }
+        ARGV0.store(unsafe { *argv } as *mut u8, Ordering::Relaxed);
+    }
+
+    #[test_case]
+    fn host_elf_reads_its_own_magic() {
+        let argv0 = ARGV0.load(Ordering::Relaxed);
+        check!(!argv0.is_null(), "no argv[0] from the loader");
+        if argv0.is_null() {
+            return;
+        }
+        unsafe {
+            fioInit();
+            let fd = fioOpen(argv0 as *const i8, FIO_O_RDONLY as i32);
+            check!(fd >= 0, "fioOpen of the loaded ELF failed with {fd}");
+            if fd < 0 {
+                return;
+            }
+            let mut magic = [0u8; 4];
+            let read = fioRead(fd, magic.as_mut_ptr().cast(), 4);
+            check_eq!(read, 4, "bytes read from the ELF");
+            check_eq!(magic, [0x7f, b'E', b'L', b'F'], "ELF magic");
+            check!(fioLseek(fd, 0, FIO_SEEK_END as i32) > 4, "ELF longer than its header");
+            fioClose(fd);
+        }
     }
 }
 
@@ -1935,6 +1990,33 @@ mod graphics {
 
             gskit::gsKit_init_screen(context);
             gskit::gsKit_clear(context, rgba(0x80, 0x1A, 0x2B, 0x80));
+            gskit::gsKit_queue_exec(context);
+            gskit::gsKit_sync_flip(context);
+            gskit::gsKit_deinit_global(context);
+        }
+    }
+
+    /// One flat triangle through `gsKit_prim_triangle_3d`, straight after a clear, no transform. Nothing in the
+    /// project had yet drawn a primitive, so this is the first check that the GS takes one.
+    #[test_case]
+    fn gskit_draws_one_triangle() {
+        unsafe {
+            let context = gskit::gsKit_hires_init_global();
+            check!(!context.is_null(), "gsKit_hires_init_global() returned null");
+            gskit::gsKit_init_screen(context);
+            gskit::gsKit_set_test(context, gskit::GS_ZTEST_OFF as u8);
+            gskit::gsKit_clear(context, rgba(0x00, 0x00, 0x00, 0x80));
+            // `GSGLOBAL` is 64-byte aligned but `malloc` only gives 16, so read through raw pointers.
+            let w = core::ptr::addr_of!((*context).Width).read_unaligned() as f32;
+            let h = core::ptr::addr_of!((*context).Height).read_unaligned() as f32;
+            ps2sdk_sys::println!("triangle: frame {w}x{h}");
+            gskit::gsKit_prim_triangle_3d(
+                context,
+                w * 0.2, h * 0.8, 0,
+                w * 0.8, h * 0.8, 0,
+                w * 0.5, h * 0.2, 0,
+                rgba(0xFF, 0xFF, 0xFF, 0x80),
+            );
             gskit::gsKit_queue_exec(context);
             gskit::gsKit_sync_flip(context);
             gskit::gsKit_deinit_global(context);

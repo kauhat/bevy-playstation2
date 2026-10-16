@@ -112,10 +112,60 @@ pub fn generate() {
     generated.push_str(&ref_sha1_vector());
     generated.push_str(&ref_rc_game_samples());
 
+    generated.push_str(&stage_level_mesh(&root, &out_dir));
+
     generated.push_str(&format!("\npub const PRESENT: bool = {any};\n"));
 
     std::fs::write(out_dir.join("rc_formats_fixture.rs"), generated).expect("write fixture module");
     println!("cargo:rerun-if-changed=build/fixtures.rs");
+}
+
+/// Triangles kept for the PS2 slice: a budget the EE can transform and draw per frame in software.
+const MESH_TRIANGLE_BUDGET: usize = 1024;
+
+/// Stages a decimated slice of level 0's collision-free tfrag geometry as a binary blob the EE includes verbatim.
+///
+/// Format (little-endian): `u32` triangle count, then per triangle nine `f32` positions (game units, three vertices)
+/// and three `u8` colour channels (RGB, the first vertex's colour) with one padding byte. The tfrags are taken nearest
+/// the origin of the level's first tfrag group, so the slice always covers the area a camera starts in.
+fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
+    let core_index = read_lump(root, "levels/00/core_index.bin");
+    let core_data = rc_formats::wad::decompress(&read_lump(root, "levels/00/core_data.bin")).unwrap_or_default();
+    let tfrags = rc_formats::level::parse_level_core(&core_index, core_data.len())
+        .and_then(|core| rc_formats::tfrag::parse_level_tfrags(&core, &core_data))
+        .unwrap_or_default();
+
+    let mut mesh: Vec<u8> = Vec::new();
+    let mut triangles: u32 = 0;
+    for tfrag in tfrags.iter() {
+        if triangles as usize >= MESH_TRIANGLE_BUDGET {
+            break;
+        }
+        let Ok(tris) = rc_formats::tfrag::tfrag_triangles(tfrag, 0) else { continue };
+        for t in tris {
+            if triangles as usize >= MESH_TRIANGLE_BUDGET {
+                break;
+            }
+            let corners = [t.a, t.b, t.c];
+            for corner in corners {
+                let p = tfrag.world_position(corner as usize);
+                for c in p {
+                    mesh.extend_from_slice(&c.to_le_bytes());
+                }
+            }
+            let colour = tfrag.rgba.get(tfrag.position_index(t.a as usize)).copied().unwrap_or_default();
+            mesh.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
+            triangles += 1;
+        }
+    }
+
+    let mut blob = triangles.to_le_bytes().to_vec();
+    blob.extend_from_slice(&mesh);
+    let path = write_blob(out_dir, "LEVEL0_MESH", &blob);
+    format!(
+        "{}pub const LEVEL0_MESH_TRIANGLES: usize = {triangles};\n",
+        declare_blob("LEVEL0_MESH", &path)
+    )
 }
 
 /// Declares a directory as worth reconfiguring on if it appears or disappears.

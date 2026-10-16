@@ -27,6 +27,7 @@ extern crate alloc;
 
 mod components;
 pub use components::*;
+mod level;
 
 // Reserve a static 16MB heap block inside the main RAM pool
 const HEAP_SIZE: usize = 1024 * 1024 * 16;
@@ -103,6 +104,11 @@ impl Plugin for Ps2PlatformPlugin {
             gs
         };
 
+        unsafe {
+            // Depth testing for the level's triangles.
+            gskit::gsKit_set_test(gs_global, gskit::GS_ZTEST_OFF as u8);
+        }
+
         app.insert_resource(GsContext(gs_global));
 
         app.set_runner(ps2_runner);
@@ -171,12 +177,6 @@ const fn ticks_to_duration(ticks: u64) -> Duration {
 }
 
 fn ps2_runner(mut app: App) -> AppExit {
-    let gs_global = unsafe {
-        let gs = gskit::gsKit_hires_init_global();
-        gskit::gsKit_init_screen(gs);
-        gs
-    };
-
     loop {
         unsafe {
             Instant::set_elapsed(get_ps2_elapsed);
@@ -231,6 +231,10 @@ fn attach_ps2_mesh(mut commands: Commands, query: Query<Entity, Added<GameMesh>>
 }
 
 fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
+    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
+        println!("trace: clear_screen_system runs");
+    }
     let raw_color = Ps2Color::from(bg.0);
 
     unsafe {
@@ -238,13 +242,80 @@ fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
     }
 }
 
-fn draw_meshes_system(query: Query<(&Transform, &Ps2Mesh)>) {
-    for entity in query.iter() {
-        // TODO: Implement actual mesh drawing logic here.
+/// Draws the level slice from the start camera (`level.rs`): project every corner, drop triangles with a corner behind
+/// the near plane, and submit the rest as flat-shaded gsKit triangles. The classic path: the EE does the transform.
+fn draw_meshes_system(gs: Res<GsContext>) {
+    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
+        println!("trace: draw_meshes_system runs");
+    }
+    let gs = gs.0;
+    // `gsKit_hires_init_global` hands back a `malloc` block that is only 16-byte aligned, and `GSGLOBAL` is declared
+    // 64-byte aligned, so a typed reference would fail Rust's alignment check. Read the two fields through raw
+    // pointers instead.
+    let (width, height) = unsafe {
+        (
+            core::ptr::addr_of!((*gs).Width).read_unaligned() as f32,
+            core::ptr::addr_of!((*gs).Height).read_unaligned() as f32,
+        )
+    };
+    let camera = level::START;
+    let mut submitted = 0usize;
+    let (mut min_x, mut max_x, mut min_y, mut max_y) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+
+
+    for index in 0..level::triangle_count() {
+        let Some(tri) = level::triangle(index) else { break };
+        let mut screen = [[0.0f32; 3]; 3];
+        let mut visible = true;
+        for (k, corner) in tri.corners.iter().enumerate() {
+            match camera.project(corner.0, width, height) {
+                Some(p) => screen[k] = p,
+                None => {
+                    visible = false;
+                    break;
+                }
+            }
+        }
+        if !visible {
+            continue;
+        }
+        let colour = Ps2Color::from(Color::srgb_u8(tri.rgb[0], tri.rgb[1], tri.rgb[2])).0;
+        unsafe {
+            gskit::gsKit_prim_triangle_3d(
+                gs,
+                screen[0][0],
+                screen[0][1],
+                screen[0][2] as i32,
+                screen[1][0],
+                screen[1][1],
+                screen[1][2] as i32,
+                screen[2][0],
+                screen[2][1],
+                screen[2][2] as i32,
+                colour,
+            );
+        }
+        submitted += 1;
+        for corner in screen {
+            min_x = min_x.min(corner[0]);
+            max_x = max_x.max(corner[0]);
+            min_y = min_y.min(corner[1]);
+            max_y = max_y.max(corner[1]);
+        }
+    }
+    static REPORTED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+    if !REPORTED.swap(true, core::sync::atomic::Ordering::Relaxed) {
+        println!("level: submitted {submitted} of {} triangles at {width}x{height}", level::triangle_count());
+        println!("level: screen extent x[{min_x}, {max_x}] y[{min_y}, {max_y}]");
     }
 }
 
 fn flip_display_system(gs: Res<GsContext>) {
+    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
+        println!("trace: flip_display_system runs");
+    }
     unsafe {
         gskit::gsKit_queue_exec(gs.0);
         gskit::gsKit_sync_flip(gs.0);
