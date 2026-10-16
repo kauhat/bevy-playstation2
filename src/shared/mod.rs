@@ -100,8 +100,8 @@ impl Plugin for SharedPlugin {
             (
                 rotate_entities,
                 count_entities,
-                cycle_background_color_system,
-                entity_spawner_system,
+                // cycle_background_color_system,
+                // entity_spawner_system,
             ),
         );
 
