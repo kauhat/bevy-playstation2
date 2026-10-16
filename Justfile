@@ -117,7 +117,7 @@ ps2sdk-bindings:
         {{ PS2DEV_FLAGS_BINDGEN }} -- \
         {{ PS2DEV_FLAGS_CLANG }} {{ PS2DEV_INCLUDES }}
 
-    modules=("kernel" "gskit" "draw")
+    modules=("kernel" "gskit" "draw" "fileio")
 
     for module in "${modules[@]}"; do
         echo "Generating ${module} bindings..."
