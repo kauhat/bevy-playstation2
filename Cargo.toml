@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
+# The vendored re-rac checkout is a workspace of its own (`vendor/rerac/Cargo.toml`); excluding it keeps its crates
+# resolving `workspace = true` against that root rather than this one, while still letting us name one by path.
+exclude = ["vendor/rerac"]
 members = [
     "crates/ps2sdk-sys",
     "vendor/prussia/prussia_bios",
@@ -46,6 +49,13 @@ bevy_ecs = { version = "0.20" }
 [target.'cfg(target_vendor = "sony")'.dependencies]
 ps2sdk-sys = { path = "crates/ps2sdk-sys" }
 prussia_rt = { path = "vendor/prussia/prussia_rt" }
+# Assets of the vendored re-rac (Ratchet & Clank) port: the on-disc format readers, built `core + alloc` for
+# bare metal. Undoes `thiserror` and the filesystem/ISO modules (see the crate's `std` feature).
+rc-formats = { path = "vendor/rerac/crates/rc-formats", default-features = false }
+# The vendored re-rac (Ratchet & Clank) *gameplay kernels* — the VU0 vector maths, the game's random stream, the
+# spline follower and the collision queries — likewise `core + alloc`. Its hosted subsystems stay behind its `std`
+# feature; the PS2 build sees only the portable kernels (see the crate's `lib.rs`).
+rc-game = { path = "vendor/rerac/crates/rc-game", default-features = false }
 
 # prussia_bios = { path = "vendor/prussia/prussia_bios" }
 # prussia_debug = { path = "vendor/prussia/prussia_debug" }
@@ -73,8 +83,19 @@ linked_list_allocator = "0.10.6"
 # indexmap = { version = "2", default-features = false }
 # foldhash = { version = "0.1", default-features = false }
 
+[build-dependencies]
+# `build.rs` runs on the host and needs the *reference* answers for the Ratchet & Clank lumps it copies into
+# `OUT_DIR` (decompressed size, digest, parsed counts). The host build of the same readers computes them, so the
+# expectations are never hand-maintained; the reader actually under test is the `no_std` one, linked for the EE.
+rc-formats = { path = "vendor/rerac/crates/rc-formats" }
+# Same deal for the gameplay kernels under test: `rng`, `ps2v`, `spline` and `collision_query` run on the host here
+# to produce the expected vectors/lengths the PS2-side tests compare against.
+rc-game = { path = "vendor/rerac/crates/rc-game" }
+
 [profile.dev]
 panic = "abort"
 
 [profile.release]
 panic = "abort"
+# TODO: may still need to be 0
+opt-level = 1

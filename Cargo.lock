@@ -473,6 +473,8 @@ dependencies = [
  "linked_list_allocator",
  "prussia_rt",
  "ps2sdk-sys",
+ "rc-formats",
+ "rc-game",
 ]
 
 [[package]]
@@ -4719,6 +4721,23 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
  "objc2-quartz-core 0.3.2",
+]
+
+[[package]]
+name = "rc-formats"
+version = "0.3.4"
+dependencies = [
+ "bytemuck",
+ "libm",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rc-game"
+version = "0.3.4"
+dependencies = [
+ "libm",
+ "rc-formats",
 ]
 
 [[package]]

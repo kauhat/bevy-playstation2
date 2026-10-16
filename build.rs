@@ -1,5 +1,9 @@
 use std::env;
 
+mod fixtures {
+    include!("build/fixtures.rs");
+}
+
 fn main() {
     // Crane's `buildDepsOnly` compiles a throwaway dummy binary just to warm the dependency
     // cache. It cannot boot through the PS2SDK crt0, so it sets this to ask for a link that
@@ -16,6 +20,10 @@ fn main() {
         println!("cargo:rustc-link-arg=-Wl,--entry=0");
         return;
     }
+
+    // Stage the Ratchet & Clank lumps the PS2 tests parse, and their host-computed answers. Harmless (and quick)
+    // when the extracted tree is absent: it just writes empty blobs and a `PRESENT = false` marker.
+    fixtures::generate();
 
     let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap_or_default();
 

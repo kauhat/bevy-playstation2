@@ -581,6 +581,532 @@ mod prussia {
 }
 
 //
+// The vendored re-rac (Ratchet & Clank) format readers, ported to `core + alloc`...
+//
+
+/// Drives `rc_formats` - the on-disc format readers from the neighbouring Ratchet & Clank port - on the EE.
+///
+/// The crate used to assume a hosted environment (`std::fs`, `std::collections`, `thiserror` and the `f32`/`f64`
+/// transcendentals). It now compiles for `core + alloc` behind its `std` feature, and this module is the proof: it
+/// parses real lumps pulled from `vendor/rerac/extracted/`, inflated in-emulator where the format calls for it, and
+/// compares every result against what the host computed from identical bytes at build time.
+///
+/// The bytes and the answers travel in a generated module (see `build/fixtures.rs`), so there is nothing to type by
+/// hand and no game data in the tree. On a checkout without the extracted discs, `PRESENT` is false and each test
+/// reports itself skipped instead of pretending to pass.
+///
+/// Everything here is arithmetic over supplied buffers - no blocking, no hardware - so it belongs in the part of the
+/// file that precedes anything that can wait on a device.
+#[cfg(target_vendor = "sony")]
+mod rc_formats {
+    use core::hint::black_box;
+
+    use rc_formats::tfrag_light::ps2;
+    use ps2sdk_sys::println;
+
+    /// Lumps and the host's reference answers, emitted by `build.rs`.
+    pub mod fixture {
+        include!(concat!(env!("OUT_DIR"), "/rc_formats_fixture.rs"));
+    }
+
+    /// Prints the reason a fixture-driven test stepped aside, and returns whether the caller should bail.
+    fn skip_unless(label: &str, ready: bool) -> bool {
+        if !ready {
+            println!("    (skipped {label}: no extracted game data at configure time)");
+        }
+        !ready
+    }
+
+    /// A real WAD-compressed lump, inflated on the EE.
+    ///
+    /// `core_data.bin` for a whole level is ~17 MiB and would not fit beside the test runner's heap, but a HUD bank
+    /// is a fair specimen of the same LZ77 stream (literals, near and far matches, padding) at 62 KiB in and
+    /// exactly 128 KiB out - and the output is pinned by both length and digest, so a stream the EE walked even one
+    /// byte differently lands here rather than sailing through.
+    #[test_case]
+    fn rc_wad_inflates_a_real_hud_bank() {
+        if skip_unless("real WAD lump", fixture::HUD_BANK_WAD_OK) {
+            return;
+        }
+
+        let inflated = match rc_formats::wad::decompress(fixture::HUD_BANK_WAD) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                check!(false, "wad::decompress failed on the HUD bank: {err}");
+                return;
+            }
+        };
+
+        check_eq!(
+            inflated.len(),
+            fixture::HUD_BANK_WAD_INFLATED_LEN,
+            "the EE inflated the HUD bank to the wrong size"
+        );
+        check_eq!(
+            fnv1a(&inflated),
+            fixture::HUD_BANK_WAD_INFLATED_FNV,
+            "the EE's inflated HUD bank has the wrong contents"
+        );
+
+        println!(
+            "    {}-byte WAD -> {} bytes, digest agreed",
+            fixture::HUD_BANK_WAD.len(),
+            inflated.len()
+        );
+    }
+
+    /// The WAD decompressor's fiddlier branches, on hand-built streams.
+    ///
+    /// The vectors are `wad.rs`'s own unit tests, lifted here because those run on the host: literal runs, short
+    /// and long matches, the window-extending far match, the dummy and pad packets, and the rejected
+    /// adjacent-literals stream. On the EE they exercise the same code paths the digest test above does not reach.
+    #[test_case]
+    fn rc_wad_handles_every_packet_kind() {
+        // Literal then a short "little match": 4 literals, dd, a run of 8 ds.
+        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0xC0, 0x00], b"abcdddddddd", "literal + little match");
+        // Medium match with a trailing little literal run (`!?`).
+        expect_inflate(&[0x01, b'x', b'y', b'z', b'w', 0x21, 0x02, 0x00, b'!', b'?'], b"xyzwwww!?", "medium match + literal");
+        // Dummy packet then a pad packet.
+        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0x11, 0x02, 0x00, b'e', b'f'], b"abcdef", "dummy packet");
+        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0x12, 0x00, 0x00, 0xEE], b"abcd", "pad packet");
+
+        // Adjacent literal packets are malformed and must be reported, not swallowed.
+        let adjacent = wad(&[0x01, b'a', b'b', b'c', b'd', 0x01, b'e', b'f', b'g', b'h']);
+        check!(
+            rc_formats::wad::decompress(&adjacent).is_err(),
+            "adjacent literal packets should be rejected"
+        );
+    }
+
+    /// Prepend the 16-byte WAD header to a packet list, filling in the total size, as `wad.rs`'s tests do.
+    fn wad(packets: &[u8]) -> alloc::vec::Vec<u8> {
+        let mut buf = b"WAD\0\0\0\0TEST\0\0\0\0\0".to_vec();
+        buf.extend_from_slice(packets);
+        let size = buf.len() as u32;
+        buf[3..7].copy_from_slice(&size.to_le_bytes());
+        buf
+    }
+
+    fn expect_inflate(packets: &[u8], expected: &[u8], what: &str) {
+        match rc_formats::wad::decompress(&wad(packets)) {
+            Ok(bytes) => check_eq!(bytes.as_slice(), expected, "{what}"),
+            Err(err) => check!(false, "{what}: decompress failed: {err}"),
+        }
+    }
+
+    /// The level core index, parsed on the EE, reproduced against the host.
+    ///
+    /// `core_index.bin` is the 32 KiB table that names every table and block of a level: the gs_ram descriptors,
+    /// the moby/tie/shrub class tables, and (through the boundary rule) each block's extent. Getting the same
+    /// counts and the same opening block names on both sides means the whole 0xbc-byte header, the POD tables and
+    /// the integer boundary walk all behaved.
+    #[test_case]
+    fn rc_level_core_index_matches_the_host() {
+        if skip_unless("level core index", fixture::CORE_OK) {
+            return;
+        }
+
+        let core = match rc_formats::level::parse_level_core(fixture::LEVEL_CORE_INDEX, 0) {
+            Ok(core) => core,
+            Err(err) => {
+                check!(false, "parse_level_core failed on the EE: {err}");
+                return;
+            }
+        };
+
+        check_eq!(core.gs_ram.len(), fixture::CORE_GSRAM_COUNT, "gs_ram descriptor count");
+        check_eq!(core.moby_classes.len(), fixture::CORE_MOBY_CLASSES, "moby class count");
+        check_eq!(core.tie_classes.len(), fixture::CORE_TIE_CLASSES, "tie class count");
+        check_eq!(core.shrub_classes.len(), fixture::CORE_SHRUB_CLASSES, "shrub class count");
+        check_eq!(core.blocks.len(), fixture::CORE_BLOCKS, "block count");
+
+        // The first few block names, which is what the boundary rule hangs off.
+        let count = core.blocks.len().min(fixture::KEY_BLOCK_COUNT);
+        for index in 0..count {
+            check_eq!(
+                core.blocks[index].name.as_str(),
+                fixture::KEY_BLOCKS[index],
+                "block #{index} name"
+            );
+        }
+
+        println!(
+            "    core: {} gsram, {} moby, {} tie, {} shrub, {} blocks",
+            core.gs_ram.len(),
+            core.moby_classes.len(),
+            core.tie_classes.len(),
+            core.shrub_classes.len(),
+            core.blocks.len()
+        );
+    }
+
+    /// The disc's table of contents, parsed on the EE.
+    #[test_case]
+    fn rc_toc_lists_every_level() {
+        if skip_unless("TOC", fixture::TOC_OK) {
+            return;
+        }
+
+        match rc_formats::toc::level_header_sectors(fixture::TOC) {
+            Ok(sectors) => check_eq!(
+                sectors.iter().filter(|s| s.is_some()).count(),
+                fixture::TOC_LEVELS,
+                "populated level-header slots in the TOC"
+            ),
+            Err(err) => check!(false, "level_header_sectors failed on the EE: {err}"),
+        }
+    }
+
+    /// The level header, parsed and expanded on the EE.
+    ///
+    /// Beyond deserialising the 0x2434-byte structure, this expands it into the level's audio and scene lumps
+    /// (`toc::level_stream_lumps`), which walks the `bindata`/`music`/`speech` arrays and their scene records and
+    /// builds a formatted path for each survivor. The EE's count and opening names must match the host's.
+    #[test_case]
+    fn rc_level_header_expands_the_same_lumps() {
+        if skip_unless("level header", fixture::LVLHDR_OK) {
+            return;
+        }
+
+        let header = match rc_formats::toc::parse_level_header(fixture::LEVEL_HEADER) {
+            Ok(header) => header,
+            Err(err) => {
+                check!(false, "parse_level_header failed on the EE: {err}");
+                return;
+            }
+        };
+
+        check_eq!(header.id, fixture::LVLHDR_ID, "level header id");
+
+        let lumps = rc_formats::toc::level_stream_lumps(&header, |_sector| {
+            Ok::<u64, core::convert::Infallible>(0x800)
+        })
+        .unwrap_or_default();
+
+        check_eq!(lumps.len(), fixture::LVLHDR_LUMPS, "stream lump count");
+
+        let count = lumps.len().min(fixture::LVLHDR_KEY_LUMPS.len());
+        for index in 0..count {
+            check_eq!(
+                lumps[index].name.as_str(),
+                fixture::LVLHDR_KEY_LUMPS[index],
+                "stream lump #{index} name"
+            );
+        }
+    }
+
+    /// The occlusion block, parsed on the EE.
+    ///
+    /// Novalis carries a sparse occlusion tree, so the cell count is often low or zero - the point here is that the
+    /// EE walks the block's node table and reaches exactly the number of cells the host did, error-free.
+    #[test_case]
+    fn rc_occlusion_block_parses_consistently() {
+        if skip_unless("occlusion block", fixture::OCCL_OK) {
+            return;
+        }
+
+        match rc_formats::occlusion::parse_occlusion_block(fixture::OCCLUSION_BLOCK) {
+            Ok(occl) => {
+                check_eq!(occl.cells.len(), fixture::OCCL_CELLS, "occlusion cell count");
+
+                // The mask array must sit inside the block, and looking up a coordinate must stay in bounds.
+                check!(
+                    occl.masks_offset >= 0 && (occl.masks_offset as usize) <= fixture::OCCLUSION_BLOCK.len(),
+                    "masks_offset {} escaped the block",
+                    occl.masks_offset
+                );
+                let _ = rc_formats::occlusion::lookup_mask(fixture::OCCLUSION_BLOCK, 0, 0, 0);
+            }
+            Err(err) => check!(false, "parse_occlusion_block failed on the EE: {err}"),
+        }
+
+        // The copied block itself has to be the host's bytes, or the above proves nothing.
+        check_eq!(
+            fnv1a(fixture::OCCLUSION_BLOCK),
+            fixture::OCCLUSION_BLOCK_FNV,
+            "occlusion block digest"
+        );
+    }
+
+    /// The HUD header, parsed on the EE.
+    #[test_case]
+    fn rc_hud_header_matches_the_host() {
+        if skip_unless("HUD header", fixture::HUD_OK) {
+            return;
+        }
+
+        match rc_formats::hud::parse_header(fixture::HUD_HEADER) {
+            Ok(header) => {
+                check_eq!(header.icon_count as usize, fixture::HUD_ICONS, "HUD icon count");
+                check_eq!(header.frame_count as usize, fixture::HUD_FRAMES, "HUD frame count");
+            }
+            Err(err) => check!(false, "hud::parse_header failed on the EE: {err}"),
+        }
+    }
+
+    /// The VU0 `sin`/`cos` the whole lighting path leans on, swept on the EE and checked against the host.
+    ///
+    /// `vu0_sin_cos` reimplements the vector unit's polynomial approximation over *raw float bit patterns*, folding
+    /// and clamping in integer-land. It underpins every rotated moby. The samples rake across zeroes, ones, signs,
+    /// denormals, infinities and angles spanning the full quadrant, so a disagreement in any arithmetic edge would
+    /// show up as a differing word.
+    #[test_case]
+    fn rc_vu0_sin_cos_is_bit_identical_across_targets() {
+        let mut differed = 0usize;
+        for (angle, sin_expected, cos_expected) in fixture::VU0_SIN_COS_SAMPLES {
+            let (sin_got, cos_got) = rc_formats::moby_light::vu0_sin_cos(black_box(angle));
+            if !checks_equal_pair((sin_got, cos_got), (sin_expected, cos_expected), angle) {
+                differed += 1;
+            }
+        }
+
+        check_eq!(differed, 0, "vu0_sin_cos disagreed with the host on {differed} samples");
+        println!(
+            "    vu0_sin_cos: {} samples agreed bit for bit",
+            fixture::VU0_SIN_COS_SAMPLES.len()
+        );
+    }
+
+    fn checks_equal_pair(got: (u32, u32), expected: (u32, u32), angle: u32) -> bool {
+        if got == expected {
+            return true;
+        }
+        check!(
+            false,
+            "vu0_sin_cos({angle:#010x}) = ({:#010x}, {:#010x}), host says ({:#010x}, {:#010x})",
+            got.0,
+            got.1,
+            expected.0,
+            expected.1
+        );
+        false
+    }
+
+    /// The tuple arithmetic every light multiplies through, crossed pairwise on the EE.
+    ///
+    /// `ps2::{add,sub,mul,div,max}` mimic the emotion engine's FMAC behaviour (mantissa truncation, saturating
+    /// sums, flush-to-zero), so they are integer code standing in for floating point. Every operand is paired with
+    /// every other, including degenerate patterns no sane number would hold.
+    #[test_case]
+    fn rc_fmac_tuple_arithmetic_matches_the_host() {
+        let mut mismatches = 0usize;
+        for ([a, b], results) in fixture::TU_PAIR_SAMPLES {
+            let got = [
+                ps2::add(black_box(a), black_box(b)),
+                ps2::sub(a, b),
+                ps2::mul(a, b),
+                ps2::div(a, b),
+                ps2::max(a, b),
+            ];
+            for (index, (got, expected)) in got.iter().zip(results).enumerate() {
+                if *got != expected {
+                    mismatches += 1;
+                    check!(
+                        false,
+                        "ps2 op #{index} of ({a:#010x}, {b:#010x}) = {got:#010x}, host says {expected:#010x}"
+                    );
+                }
+            }
+        }
+
+        check_eq!(mismatches, 0, "tuple arithmetic disagreed with the host {mismatches} times");
+        println!("    fmac tuples: {} pairs agreed", fixture::TU_PAIR_SAMPLES.len());
+    }
+
+    /// SHA-1, used to authenticate disc assets, agreeing with the host on a known sentence.
+    ///
+    /// Independent of the fixtures: works even on a checkout with no game data, so the reader always gets some
+    /// exercise.
+    #[test_case]
+    fn rc_sha1_matches_the_known_digest() {
+        const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
+        let digest = rc_formats::sha1::sha1(FOX);
+
+        check_eq!(digest, fixture::SHA1_FOX_DIGEST, "sha1(\"The quick brown fox…\")");
+        check_eq!(FOX.len(), fixture::SHA1_FOX_LEN, "sample length");
+    }
+
+    /// The carried lumps arrived intact (their bytes survive the trip into `.rodata`).
+    ///
+    /// A digest of the *inputs* rather than any parse of them: if this ever fails, every other test in the module
+    /// is suspect, which is exactly the sort of thing worth isolating.
+    #[test_case]
+    fn rc_fixtures_arrived_intact() {
+        if skip_unless("fixture blobs", fixture::PRESENT) {
+            return;
+        }
+
+        check_eq!(fixture::TOC.len(), fixture::TOC_LEN, "TOC length");
+        check_eq!(fnv1a(fixture::TOC), fixture::TOC_FNV, "TOC digest");
+        check_eq!(fixture::LEVEL_CORE_INDEX.len(), fixture::LEVEL_CORE_INDEX_LEN, "core index length");
+        check_eq!(fnv1a(fixture::LEVEL_CORE_INDEX), fixture::LEVEL_CORE_INDEX_FNV, "core index digest");
+        check_eq!(fixture::HUD_HEADER.len(), fixture::HUD_HEADER_LEN, "HUD header length");
+        check_eq!(fnv1a(fixture::HUD_HEADER), fixture::HUD_HEADER_FNV, "HUD header digest");
+        check_eq!(fixture::LEVEL_HEADER.len(), fixture::LEVEL_HEADER_LEN, "level header length");
+        check_eq!(fnv1a(fixture::LEVEL_HEADER), fixture::LEVEL_HEADER_FNV, "level header digest");
+        check_eq!(fixture::OCCLUSION_BLOCK.len(), fixture::OCCLUSION_BLOCK_LEN, "occlusion length");
+        check_eq!(fixture::HUD_BANK_WAD.len(), fixture::HUD_BANK_WAD_RAW_LEN, "HUD bank length");
+    }
+
+    /// FNV-1a, 64-bit - the digest the fixture generator stamped its reference bytes with. Recomputed here so the
+    /// comparison is apples to apples without dragging in a hash crate.
+    fn fnv1a(bytes: &[u8]) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        for &byte in bytes {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        hash
+    }
+
+    /// Ratchet & Clank random number generator stream (newlib-based LCG on the EE).
+    #[test_case]
+    fn rc_game_rng_stream_matches_reference() {
+        use rc_game::rng::{Rng, LEVEL_SEED};
+
+        let mut rng = Rng::new();
+        rng.srand(LEVEL_SEED);
+
+        for (i, &expected) in fixture::RNG_LEVEL_SEED_SAMPLES.iter().enumerate() {
+            let val = rng.rand();
+            check_eq!(val, expected, "RNG step #{i} mismatch");
+        }
+    }
+
+    /// Ratchet & Clank spline cursor advancement and curve tracking on the EE.
+    #[test_case]
+    fn rc_game_spline_advance_matches_reference() {
+        use rc_game::spline::{self, Cursor};
+
+        let pts = [[0.0f32, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0], [0.0, 10.0, 5.0]];
+        let spline_pts = spline::with_lengths(&pts);
+        let mut cursor = Cursor::default();
+
+        let steps = [2.5f32, 5.0, 5.0, 5.0, 5.0, 5.0];
+        for (i, (&step, &(expected_pos, expected_end, expected_seg, expected_t))) in
+            steps.iter().zip(&fixture::SPLINE_EVAL_SAMPLES).enumerate()
+        {
+            let (pos, end) = spline::advance(&spline_pts, false, step, &mut cursor);
+            check_eq!(pos[0].to_bits(), expected_pos[0], "spline step #{i} pos.x");
+            check_eq!(pos[1].to_bits(), expected_pos[1], "spline step #{i} pos.y");
+            check_eq!(pos[2].to_bits(), expected_pos[2], "spline step #{i} pos.z");
+            check_eq!(end, expected_end, "spline step #{i} end flag");
+            check_eq!(cursor.seg, expected_seg, "spline step #{i} cursor seg");
+            check_eq!(cursor.t.to_bits(), expected_t, "spline step #{i} cursor t");
+        }
+    }
+
+    /// Ratchet & Clank VU0 vector arithmetic operations (vadd, vsub, vmul, dot_x, cross).
+    #[test_case]
+    fn rc_game_ps2v_vector_math() {
+        use rc_game::ps2v;
+
+        let v_a = [0x3f80_0000u32, 0x4000_0000, 0x4040_0000]; // [1.0, 2.0, 3.0]
+        let v_b = [0x4080_0000u32, 0x40a0_0000, 0x40c0_0000]; // [4.0, 5.0, 6.0]
+
+        let v_add = ps2v::vadd(v_a, v_b);
+        check_eq!(v_add, fixture::PS2V_VADD_SAMPLE, "ps2v::vadd");
+
+        let v_sub = ps2v::vsub(v_a, v_b);
+        check_eq!(v_sub, fixture::PS2V_VSUB_SAMPLE, "ps2v::vsub");
+
+        let v_mul = ps2v::vmul(v_a, v_b);
+        check_eq!(v_mul, fixture::PS2V_VMUL_SAMPLE, "ps2v::vmul");
+
+        let dot = ps2v::dot_x(v_a, v_b);
+        check_eq!(dot, fixture::PS2V_DOT_SAMPLE, "ps2v::dot_x");
+
+        let cross = ps2v::cross(v_a, v_b);
+        check_eq!(cross, fixture::PS2V_CROSS_SAMPLE, "ps2v::cross");
+    }
+
+    /// Basic moby runtime table and instance creation.
+    #[test_case]
+    fn rc_game_moby_runtime_instance_lifecycle() {
+        use alloc::vec::Vec;
+        use rc_game::moby_runtime::{MobyTable, ClassInfo, state};
+
+        let mut table = MobyTable::new(Vec::new(), 4);
+        check_eq!(table.mobys.len(), 4, "initial dynamic table size");
+
+        let class_info = ClassInfo {
+            slot: 1,
+            scale: 1.0,
+            ..Default::default()
+        };
+
+        let id = table.create(10, Some(&class_info), 1);
+        check!(id.is_some(), "create moby returned Some");
+        let id = id.unwrap();
+        check_eq!(table.mobys[id].o_class, 10, "moby class matches");
+        check!(table.mobys[id].state < state::DELETED_STATIC, "moby starts in non-deleted state");
+
+        table.delete(id, 1);
+        check!(table.mobys[id].is_deleted(), "moby is deleted after delete()");
+    }
+
+    /// Controller record (`PadState`) and input processing on the EE.
+    #[test_case]
+    fn rc_game_pad_processing() {
+        use rc_game::pad::{PadState, PadInput, button};
+
+        let mut pad = PadState::default();
+        let input = PadInput::default()
+            .press(button::CROSS | button::SQUARE)
+            .stick(0.0, 1.0);
+        let bytes = input.bytes();
+
+        pad.update(Some(&bytes), false);
+
+        check_eq!(pad.held & button::CROSS, button::CROSS, "Cross button should be down");
+        check_eq!(pad.held & button::SQUARE, button::SQUARE, "Square button should be down");
+        check_eq!(pad.held & button::CIRCLE, 0, "Circle button should not be down");
+        check!(pad.pressed_within(button::CROSS, 1).is_some(), "Cross was just pressed");
+    }
+
+    /// Dynamic point light bank allocation and release.
+    #[test_case]
+    fn rc_game_point_lights_bank() {
+        use rc_game::point_lights::{PointLight, PointLights};
+
+        let mut bank = PointLights::default();
+        let light = PointLight {
+            color: [1.0, 0.5, 0.25],
+            intensity: 0.8,
+            pos: [10.0, 20.0, 30.0],
+            radius: 5.0,
+        };
+
+        let slot = bank.alloc(light, 0.5);
+        check!(slot.is_some(), "Point light allocation succeeded under load threshold");
+        let slot = slot.unwrap();
+        check_eq!(bank.slots[slot], Some(light), "Slot holds stored light");
+
+        bank.free(slot);
+        check_eq!(bank.slots[slot], None, "Slot is cleared after free");
+    }
+
+    /// After-image motion blur ring buffer history.
+    #[test_case]
+    fn rc_game_afterimage_trail() {
+        use rc_game::afterimage::Trail;
+
+        let mut trail = Trail::default();
+        trail.start(1);
+        check!(trail.active, "Trail is active after start");
+
+        // Add a ghost 2 ticks back with alpha 0x40
+        trail.add(0x40, 2);
+        check_eq!(trail.ghosts.len(), 1, "One ghost registered");
+        check_eq!(trail.ghosts[0].alpha, 0x40, "Ghost alpha matches");
+
+        trail.kill();
+        check!(!trail.active, "Trail is inactive after kill");
+        check_eq!(trail.ghosts.len(), 0, "Ghosts cleared after kill");
+    }
+}
+
+//
 // The allocator, `alloc`, and soft-float arithmetic...
 //
 
