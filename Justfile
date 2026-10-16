@@ -32,6 +32,9 @@ ps2-build:
     # Verify that the ELF was built successfully.
     mips64r5900el-ps2-elf-readelf -h "{{ PS2_ELF_PATH }}"
 
+    # PCSX2's `host:` root is the ELF's folder: link the extracted level data there so the EE can read it (level.rs).
+    ln -sfn "$(realpath vendor/rerac/extracted/levels)" "$(dirname "{{ PS2_ELF_PATH }}")/levels"
+
 # Create a bootable PS2 ISO.
 ps2-pack-iso: ps2-build
     mkdir -p $(dirname "{{ PS2_ISO_PATH }}")

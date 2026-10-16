@@ -279,6 +279,26 @@ mod fileio {
         ARGV0.store(unsafe { *argv } as *mut u8, Ordering::Relaxed);
     }
 
+    /// Where `host:` can reach: the ELF's folder is its root; this checks whether the extracted tree is reachable
+    /// from there by a relative or an absolute path.
+    #[test_case]
+    fn host_probe_extracted_tree() {
+        unsafe {
+            fioInit();
+            let names = [
+                c"host:levels/00/core_index.bin",
+                c"host:levels/00/level_header.bin",
+            ];
+            for (i, name) in names.iter().enumerate() {
+                let fd = fioOpen(name.as_ptr(), FIO_O_RDONLY as i32);
+                ps2sdk_sys::println!("HOSTPATH {} fd={}", i, fd);
+                if fd >= 0 {
+                    fioClose(fd);
+                }
+            }
+        }
+    }
+
     #[test_case]
     fn host_elf_reads_its_own_magic() {
         let argv0 = ARGV0.load(Ordering::Relaxed);

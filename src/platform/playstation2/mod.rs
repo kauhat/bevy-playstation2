@@ -108,6 +108,15 @@ impl Plugin for Ps2PlatformPlugin {
 
         app.insert_resource(GsContext(gs_global));
 
+        let (level_data, fallback) = level::Level::load();
+        let count = level_data.triangle_count();
+        if let Some(why) = fallback {
+            println!("level: {}; drew the embedded slice ({} triangles)", why, count);
+        } else {
+            println!("level: {} triangles from the host", count);
+        }
+        app.insert_resource(LevelData(level_data));
+
         app.set_runner(ps2_runner);
 
         app.add_plugins(
@@ -247,7 +256,12 @@ fn vertex(colour: u64, x: f32, y: f32, z: u32, offset_x: i32, offset_y: i32) -> 
 
 /// Draws the level slice from the start camera (`level.rs`): project every corner, drop triangles with a corner behind
 /// the near plane, and submit the rest as flat-shaded gsKit triangles. The classic path: the EE does the transform.
-fn draw_meshes_system(gs: Res<GsContext>) {
+/// The level's triangles, loaded from the host at start-up (`level.rs`).
+#[derive(Resource)]
+pub struct LevelData(pub level::Level);
+
+fn draw_meshes_system(gs: Res<GsContext>, level_data: Res<LevelData>) {
+    let level = &level_data.0;
     let gs = gs.0;
     // `gsKit_hires_init_global` hands back a `malloc` block that is only 16-byte aligned, and `GSGLOBAL` is declared
     // 64-byte aligned, so a typed reference would fail Rust's alignment check. Read the two fields through raw
@@ -259,6 +273,7 @@ fn draw_meshes_system(gs: Res<GsContext>) {
         )
     };
     let camera = level::START;
+    let frustum = camera.frustum();
     let (offset_x, offset_y) = unsafe {
         (
             core::ptr::addr_of!((*gs).OffsetX).read_unaligned(),
@@ -266,17 +281,24 @@ fn draw_meshes_system(gs: Res<GsContext>) {
         )
     };
     let mut submitted = 0usize;
+    let mut culled = 0usize;
     // One list for the whole frame: `gsKit_prim_list_triangle_gouraud_3d` takes `{rgbaq, xyz2}` vertex pairs, three per
     // triangle, and sends them in a single GIF packet (the same packing the working sprite test uses).
     let zero = GSPRIMPOINT { rgbaq: gskit::gs_rgbaq { rgbaq: 0 }, xyz2: gskit::gs_xyz2 { xyz2: 0 } };
-    let mut vertices = alloc::vec![zero; level::triangle_count() * 3];
+    let mut vertices = alloc::vec![zero; level.triangle_count() * 3];
     let mut triangles = 0usize;
     let (mut min_x, mut max_x, mut min_y, mut max_y) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
 
-    for index in 0..level::triangle_count() {
-        let Some(tri) = level::triangle(index) else {
+    for index in 0..level.triangle_count() {
+        let Some(tri) = level.triangle(index) else {
             break;
         };
+        // Frustum cull: a triangle whose box lies wholly outside the view is never projected (`level::Frustum`).
+        let (min, max) = tri.bounds();
+        if !frustum.intersects_box(min, max) {
+            culled += 1;
+            continue;
+        }
         let mut screen = [[0.0f32; 3]; 3];
         let mut visible = true;
         for (k, corner) in tri.corners.iter().enumerate() {
@@ -316,9 +338,10 @@ fn draw_meshes_system(gs: Res<GsContext>) {
     if !REPORTED.swap(true, core::sync::atomic::Ordering::Relaxed) {
         println!(
             "level: submitted {submitted} of {} triangles at {width}x{height}",
-            level::triangle_count()
+            level.triangle_count()
         );
         println!("level: screen extent x[{min_x}, {max_x}] y[{min_y}, {max_y}]");
+        println!("level: culled {culled} triangles outside the view");
     }
 }
 

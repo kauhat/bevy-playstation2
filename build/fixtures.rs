@@ -174,6 +174,10 @@ fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
         triangles += 1;
     }
 
+    // The whole lit level, for the EE to read from the host folder at run time (`level.rs`): the same record format, every
+    // triangle in file order. Written into the extracted tree, which is gitignored; a missing tree writes nothing.
+    write_full_level(root, &all, &tfrags);
+
     let mut blob = triangles.to_le_bytes().to_vec();
     blob.extend_from_slice(&mesh);
     let path = write_blob(out_dir, "LEVEL0_MESH", &blob);
@@ -181,6 +185,29 @@ fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
         "{}pub const LEVEL0_MESH_TRIANGLES: usize = {triangles};\n",
         declare_blob("LEVEL0_MESH", &path)
     )
+}
+
+/// File the EE reads at start-up, beside the level data it was decoded from.
+const FULL_LEVEL_FILE: &str = "levels/00/level0_tris.bin";
+
+/// Writes every triangle of the level in the EE's record format (see [`stage_level_mesh`]). Best effort: if the
+/// extracted tree is not writable the EE falls back to the embedded slice.
+fn write_full_level(root: &Path, all: &[(usize, rc_formats::tfrag::TfragTriangle)], tfrags: &[rc_formats::tfrag::Tfrag]) {
+    if !root.join("levels/00").is_dir() {
+        return;
+    }
+    let mut blob = (all.len() as u32).to_le_bytes().to_vec();
+    for (index, t) in all {
+        let tfrag = &tfrags[*index];
+        for corner in [t.a, t.b, t.c] {
+            for c in tfrag.world_position(corner as usize) {
+                blob.extend_from_slice(&c.to_le_bytes());
+            }
+        }
+        let colour = tfrag.rgba.get(tfrag.position_index(t.a as usize)).copied().unwrap_or_default();
+        blob.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
+    }
+    let _ = std::fs::write(root.join(FULL_LEVEL_FILE), blob);
 }
 
 /// Declares a directory as worth reconfiguring on if it appears or disappears.
