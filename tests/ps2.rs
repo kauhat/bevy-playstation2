@@ -250,18 +250,24 @@ mod smoke {
 /// level data is embedded instead (`build/fixtures.rs`). These checks cover what the emulator does serve: the call path
 /// through `fioOpen`/`fioLseek`/`fioRead`/`fioClose`, the `host:` ELF opening, and the EIO for a missing file.
 mod fileio {
-    use ps2sdk_sys::fileio::{fioClose, fioInit, fioLseek, fioOpen, fioRead, FIO_O_RDONLY, FIO_SEEK_END, FIO_SEEK_SET};
+    use ps2sdk_sys::fileio::{
+        FIO_O_RDONLY, FIO_SEEK_END, FIO_SEEK_SET, fioClose, fioInit, fioLseek, fioOpen, fioRead,
+    };
 
     #[test_case]
     fn missing_host_file_fails_with_eio() {
         unsafe {
             fioInit();
-            check_eq!(fioOpen(c"host:no-such-file.txt".as_ptr(), FIO_O_RDONLY as i32), -5, "missing host file");
+            check_eq!(
+                fioOpen(c"host:no-such-file.txt".as_ptr(), FIO_O_RDONLY as i32),
+                -5,
+                "missing host file"
+            );
         }
     }
 
-    use core::sync::atomic::{AtomicPtr, Ordering};
     use core::ptr;
+    use core::sync::atomic::{AtomicPtr, Ordering};
 
     static ARGV0: AtomicPtr<u8> = AtomicPtr::new(ptr::null_mut());
 
@@ -291,7 +297,10 @@ mod fileio {
             let read = fioRead(fd, magic.as_mut_ptr().cast(), 4);
             check_eq!(read, 4, "bytes read from the ELF");
             check_eq!(magic, [0x7f, b'E', b'L', b'F'], "ELF magic");
-            check!(fioLseek(fd, 0, FIO_SEEK_END as i32) > 4, "ELF longer than its header");
+            check!(
+                fioLseek(fd, 0, FIO_SEEK_END as i32) > 4,
+                "ELF longer than its header"
+            );
             fioClose(fd);
         }
     }
@@ -656,8 +665,8 @@ mod prussia {
 mod rc_formats {
     use core::hint::black_box;
 
-    use rc_formats::tfrag_light::ps2;
     use ps2sdk_sys::println;
+    use rc_formats::tfrag_light::ps2;
 
     /// Lumps and the host's reference answers, emitted by `build.rs`.
     pub mod fixture {
@@ -718,12 +727,28 @@ mod rc_formats {
     #[test_case]
     fn rc_wad_handles_every_packet_kind() {
         // Literal then a short "little match": 4 literals, dd, a run of 8 ds.
-        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0xC0, 0x00], b"abcdddddddd", "literal + little match");
+        expect_inflate(
+            &[0x01, b'a', b'b', b'c', b'd', 0xC0, 0x00],
+            b"abcdddddddd",
+            "literal + little match",
+        );
         // Medium match with a trailing little literal run (`!?`).
-        expect_inflate(&[0x01, b'x', b'y', b'z', b'w', 0x21, 0x02, 0x00, b'!', b'?'], b"xyzwwww!?", "medium match + literal");
+        expect_inflate(
+            &[0x01, b'x', b'y', b'z', b'w', 0x21, 0x02, 0x00, b'!', b'?'],
+            b"xyzwwww!?",
+            "medium match + literal",
+        );
         // Dummy packet then a pad packet.
-        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0x11, 0x02, 0x00, b'e', b'f'], b"abcdef", "dummy packet");
-        expect_inflate(&[0x01, b'a', b'b', b'c', b'd', 0x12, 0x00, 0x00, 0xEE], b"abcd", "pad packet");
+        expect_inflate(
+            &[0x01, b'a', b'b', b'c', b'd', 0x11, 0x02, 0x00, b'e', b'f'],
+            b"abcdef",
+            "dummy packet",
+        );
+        expect_inflate(
+            &[0x01, b'a', b'b', b'c', b'd', 0x12, 0x00, 0x00, 0xEE],
+            b"abcd",
+            "pad packet",
+        );
 
         // Adjacent literal packets are malformed and must be reported, not swallowed.
         let adjacent = wad(&[0x01, b'a', b'b', b'c', b'd', 0x01, b'e', b'f', b'g', b'h']);
@@ -769,10 +794,26 @@ mod rc_formats {
             }
         };
 
-        check_eq!(core.gs_ram.len(), fixture::CORE_GSRAM_COUNT, "gs_ram descriptor count");
-        check_eq!(core.moby_classes.len(), fixture::CORE_MOBY_CLASSES, "moby class count");
-        check_eq!(core.tie_classes.len(), fixture::CORE_TIE_CLASSES, "tie class count");
-        check_eq!(core.shrub_classes.len(), fixture::CORE_SHRUB_CLASSES, "shrub class count");
+        check_eq!(
+            core.gs_ram.len(),
+            fixture::CORE_GSRAM_COUNT,
+            "gs_ram descriptor count"
+        );
+        check_eq!(
+            core.moby_classes.len(),
+            fixture::CORE_MOBY_CLASSES,
+            "moby class count"
+        );
+        check_eq!(
+            core.tie_classes.len(),
+            fixture::CORE_TIE_CLASSES,
+            "tie class count"
+        );
+        check_eq!(
+            core.shrub_classes.len(),
+            fixture::CORE_SHRUB_CLASSES,
+            "shrub class count"
+        );
         check_eq!(core.blocks.len(), fixture::CORE_BLOCKS, "block count");
 
         // The first few block names, which is what the boundary rule hangs off.
@@ -862,11 +903,16 @@ mod rc_formats {
 
         match rc_formats::occlusion::parse_occlusion_block(fixture::OCCLUSION_BLOCK) {
             Ok(occl) => {
-                check_eq!(occl.cells.len(), fixture::OCCL_CELLS, "occlusion cell count");
+                check_eq!(
+                    occl.cells.len(),
+                    fixture::OCCL_CELLS,
+                    "occlusion cell count"
+                );
 
                 // The mask array must sit inside the block, and looking up a coordinate must stay in bounds.
                 check!(
-                    occl.masks_offset >= 0 && (occl.masks_offset as usize) <= fixture::OCCLUSION_BLOCK.len(),
+                    occl.masks_offset >= 0
+                        && (occl.masks_offset as usize) <= fixture::OCCLUSION_BLOCK.len(),
                     "masks_offset {} escaped the block",
                     occl.masks_offset
                 );
@@ -892,8 +938,16 @@ mod rc_formats {
 
         match rc_formats::hud::parse_header(fixture::HUD_HEADER) {
             Ok(header) => {
-                check_eq!(header.icon_count as usize, fixture::HUD_ICONS, "HUD icon count");
-                check_eq!(header.frame_count as usize, fixture::HUD_FRAMES, "HUD frame count");
+                check_eq!(
+                    header.icon_count as usize,
+                    fixture::HUD_ICONS,
+                    "HUD icon count"
+                );
+                check_eq!(
+                    header.frame_count as usize,
+                    fixture::HUD_FRAMES,
+                    "HUD frame count"
+                );
             }
             Err(err) => check!(false, "hud::parse_header failed on the EE: {err}"),
         }
@@ -915,7 +969,11 @@ mod rc_formats {
             }
         }
 
-        check_eq!(differed, 0, "vu0_sin_cos disagreed with the host on {differed} samples");
+        check_eq!(
+            differed,
+            0,
+            "vu0_sin_cos disagreed with the host on {differed} samples"
+        );
         println!(
             "    vu0_sin_cos: {} samples agreed bit for bit",
             fixture::VU0_SIN_COS_SAMPLES.len()
@@ -964,8 +1022,15 @@ mod rc_formats {
             }
         }
 
-        check_eq!(mismatches, 0, "tuple arithmetic disagreed with the host {mismatches} times");
-        println!("    fmac tuples: {} pairs agreed", fixture::TU_PAIR_SAMPLES.len());
+        check_eq!(
+            mismatches,
+            0,
+            "tuple arithmetic disagreed with the host {mismatches} times"
+        );
+        println!(
+            "    fmac tuples: {} pairs agreed",
+            fixture::TU_PAIR_SAMPLES.len()
+        );
     }
 
     /// SHA-1, used to authenticate disc assets, agreeing with the host on a known sentence.
@@ -977,7 +1042,11 @@ mod rc_formats {
         const FOX: &[u8] = b"The quick brown fox jumps over the lazy dog";
         let digest = rc_formats::sha1::sha1(FOX);
 
-        check_eq!(digest, fixture::SHA1_FOX_DIGEST, "sha1(\"The quick brown fox…\")");
+        check_eq!(
+            digest,
+            fixture::SHA1_FOX_DIGEST,
+            "sha1(\"The quick brown fox…\")"
+        );
         check_eq!(FOX.len(), fixture::SHA1_FOX_LEN, "sample length");
     }
 
@@ -993,14 +1062,46 @@ mod rc_formats {
 
         check_eq!(fixture::TOC.len(), fixture::TOC_LEN, "TOC length");
         check_eq!(fnv1a(fixture::TOC), fixture::TOC_FNV, "TOC digest");
-        check_eq!(fixture::LEVEL_CORE_INDEX.len(), fixture::LEVEL_CORE_INDEX_LEN, "core index length");
-        check_eq!(fnv1a(fixture::LEVEL_CORE_INDEX), fixture::LEVEL_CORE_INDEX_FNV, "core index digest");
-        check_eq!(fixture::HUD_HEADER.len(), fixture::HUD_HEADER_LEN, "HUD header length");
-        check_eq!(fnv1a(fixture::HUD_HEADER), fixture::HUD_HEADER_FNV, "HUD header digest");
-        check_eq!(fixture::LEVEL_HEADER.len(), fixture::LEVEL_HEADER_LEN, "level header length");
-        check_eq!(fnv1a(fixture::LEVEL_HEADER), fixture::LEVEL_HEADER_FNV, "level header digest");
-        check_eq!(fixture::OCCLUSION_BLOCK.len(), fixture::OCCLUSION_BLOCK_LEN, "occlusion length");
-        check_eq!(fixture::HUD_BANK_WAD.len(), fixture::HUD_BANK_WAD_RAW_LEN, "HUD bank length");
+        check_eq!(
+            fixture::LEVEL_CORE_INDEX.len(),
+            fixture::LEVEL_CORE_INDEX_LEN,
+            "core index length"
+        );
+        check_eq!(
+            fnv1a(fixture::LEVEL_CORE_INDEX),
+            fixture::LEVEL_CORE_INDEX_FNV,
+            "core index digest"
+        );
+        check_eq!(
+            fixture::HUD_HEADER.len(),
+            fixture::HUD_HEADER_LEN,
+            "HUD header length"
+        );
+        check_eq!(
+            fnv1a(fixture::HUD_HEADER),
+            fixture::HUD_HEADER_FNV,
+            "HUD header digest"
+        );
+        check_eq!(
+            fixture::LEVEL_HEADER.len(),
+            fixture::LEVEL_HEADER_LEN,
+            "level header length"
+        );
+        check_eq!(
+            fnv1a(fixture::LEVEL_HEADER),
+            fixture::LEVEL_HEADER_FNV,
+            "level header digest"
+        );
+        check_eq!(
+            fixture::OCCLUSION_BLOCK.len(),
+            fixture::OCCLUSION_BLOCK_LEN,
+            "occlusion length"
+        );
+        check_eq!(
+            fixture::HUD_BANK_WAD.len(),
+            fixture::HUD_BANK_WAD_RAW_LEN,
+            "HUD bank length"
+        );
     }
 
     /// FNV-1a, 64-bit - the digest the fixture generator stamped its reference bytes with. Recomputed here so the
@@ -1017,7 +1118,7 @@ mod rc_formats {
     /// Ratchet & Clank random number generator stream (newlib-based LCG on the EE).
     #[test_case]
     fn rc_game_rng_stream_matches_reference() {
-        use rc_game::rng::{Rng, LEVEL_SEED};
+        use rc_game::rng::{LEVEL_SEED, Rng};
 
         let mut rng = Rng::new();
         rng.srand(LEVEL_SEED);
@@ -1033,7 +1134,12 @@ mod rc_formats {
     fn rc_game_spline_advance_matches_reference() {
         use rc_game::spline::{self, Cursor};
 
-        let pts = [[0.0f32, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0], [0.0, 10.0, 5.0]];
+        let pts = [
+            [0.0f32, 0.0, 0.0],
+            [10.0, 0.0, 0.0],
+            [10.0, 10.0, 0.0],
+            [0.0, 10.0, 5.0],
+        ];
         let spline_pts = spline::with_lengths(&pts);
         let mut cursor = Cursor::default();
 
@@ -1079,7 +1185,7 @@ mod rc_formats {
     #[test_case]
     fn rc_game_moby_runtime_instance_lifecycle() {
         use alloc::vec::Vec;
-        use rc_game::moby_runtime::{MobyTable, ClassInfo, state};
+        use rc_game::moby_runtime::{ClassInfo, MobyTable, state};
 
         let mut table = MobyTable::new(Vec::new(), 4);
         check_eq!(table.mobys.len(), 4, "initial dynamic table size");
@@ -1094,16 +1200,22 @@ mod rc_formats {
         check!(id.is_some(), "create moby returned Some");
         let id = id.unwrap();
         check_eq!(table.mobys[id].o_class, 10, "moby class matches");
-        check!(table.mobys[id].state < state::DELETED_STATIC, "moby starts in non-deleted state");
+        check!(
+            table.mobys[id].state < state::DELETED_STATIC,
+            "moby starts in non-deleted state"
+        );
 
         table.delete(id, 1);
-        check!(table.mobys[id].is_deleted(), "moby is deleted after delete()");
+        check!(
+            table.mobys[id].is_deleted(),
+            "moby is deleted after delete()"
+        );
     }
 
     /// Controller record (`PadState`) and input processing on the EE.
     #[test_case]
     fn rc_game_pad_processing() {
-        use rc_game::pad::{PadState, PadInput, button};
+        use rc_game::pad::{PadInput, PadState, button};
 
         let mut pad = PadState::default();
         let input = PadInput::default()
@@ -1113,10 +1225,25 @@ mod rc_formats {
 
         pad.update(Some(&bytes), false);
 
-        check_eq!(pad.held & button::CROSS, button::CROSS, "Cross button should be down");
-        check_eq!(pad.held & button::SQUARE, button::SQUARE, "Square button should be down");
-        check_eq!(pad.held & button::CIRCLE, 0, "Circle button should not be down");
-        check!(pad.pressed_within(button::CROSS, 1).is_some(), "Cross was just pressed");
+        check_eq!(
+            pad.held & button::CROSS,
+            button::CROSS,
+            "Cross button should be down"
+        );
+        check_eq!(
+            pad.held & button::SQUARE,
+            button::SQUARE,
+            "Square button should be down"
+        );
+        check_eq!(
+            pad.held & button::CIRCLE,
+            0,
+            "Circle button should not be down"
+        );
+        check!(
+            pad.pressed_within(button::CROSS, 1).is_some(),
+            "Cross was just pressed"
+        );
     }
 
     /// Dynamic point light bank allocation and release.
@@ -1133,7 +1260,10 @@ mod rc_formats {
         };
 
         let slot = bank.alloc(light, 0.5);
-        check!(slot.is_some(), "Point light allocation succeeded under load threshold");
+        check!(
+            slot.is_some(),
+            "Point light allocation succeeded under load threshold"
+        );
         let slot = slot.unwrap();
         check_eq!(bank.slots[slot], Some(light), "Slot holds stored light");
 
@@ -2002,7 +2132,10 @@ mod graphics {
     fn gskit_draws_one_triangle() {
         unsafe {
             let context = gskit::gsKit_hires_init_global();
-            check!(!context.is_null(), "gsKit_hires_init_global() returned null");
+            check!(
+                !context.is_null(),
+                "gsKit_hires_init_global() returned null"
+            );
             gskit::gsKit_init_screen(context);
             gskit::gsKit_set_test(context, gskit::GS_ZTEST_OFF as u8);
             gskit::gsKit_clear(context, rgba(0x00, 0x00, 0x00, 0x80));
@@ -2012,9 +2145,15 @@ mod graphics {
             ps2sdk_sys::println!("triangle: frame {w}x{h}");
             gskit::gsKit_prim_triangle_3d(
                 context,
-                w * 0.2, h * 0.8, 0,
-                w * 0.8, h * 0.8, 0,
-                w * 0.5, h * 0.2, 0,
+                w * 0.2,
+                h * 0.8,
+                0,
+                w * 0.8,
+                h * 0.8,
+                0,
+                w * 0.5,
+                h * 0.2,
+                0,
                 rgba(0xFF, 0xFF, 0xFF, 0x80),
             );
             gskit::gsKit_queue_exec(context);

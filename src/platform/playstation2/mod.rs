@@ -263,9 +263,10 @@ fn draw_meshes_system(gs: Res<GsContext>) {
     let mut submitted = 0usize;
     let (mut min_x, mut max_x, mut min_y, mut max_y) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
 
-
     for index in 0..level::triangle_count() {
-        let Some(tri) = level::triangle(index) else { break };
+        let Some(tri) = level::triangle(index) else {
+            break;
+        };
         let mut screen = [[0.0f32; 3]; 3];
         let mut visible = true;
         for (k, corner) in tri.corners.iter().enumerate() {
@@ -306,7 +307,10 @@ fn draw_meshes_system(gs: Res<GsContext>) {
     }
     static REPORTED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
     if !REPORTED.swap(true, core::sync::atomic::Ordering::Relaxed) {
-        println!("level: submitted {submitted} of {} triangles at {width}x{height}", level::triangle_count());
+        println!(
+            "level: submitted {submitted} of {} triangles at {width}x{height}",
+            level::triangle_count()
+        );
         println!("level: screen extent x[{min_x}, {max_x}] y[{min_y}, {max_y}]");
     }
 }
