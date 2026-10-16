@@ -108,14 +108,15 @@ impl Plugin for Ps2PlatformPlugin {
 
         app.insert_resource(GsContext(gs_global));
 
-        let (level_data, fallback) = level::Level::load();
-        let count = level_data.triangle_count();
+        let (level_data, fallback) = level::load();
+        let count = level_data.triangles;
         if let Some(why) = fallback {
             println!("level: {}; drew the embedded slice ({} triangles)", why, count);
         } else {
             println!("level: {} triangles from the host", count);
         }
-        app.insert_resource(LevelData(level_data));
+        app.insert_resource(LevelData { level: level_data, camera: crate::shared::level::START });
+        app.insert_resource(PadData { state: rc_game::pad::PadState::default(), frame: 0 });
 
         app.set_runner(ps2_runner);
 
@@ -132,6 +133,7 @@ impl Plugin for Ps2PlatformPlugin {
             Last,
             (
                 clear_screen_system,
+                pad_system,
                 draw_meshes_system, // Queries Query<(&Transform, &Ps2Mesh)>
                 flip_display_system,
             )
@@ -254,79 +256,100 @@ fn vertex(colour: u64, x: f32, y: f32, z: u32, offset_x: i32, offset_y: i32) -> 
     GSPRIMPOINT { rgbaq, xyz2 }
 }
 
-/// Draws the level slice from the start camera (`level.rs`): project every corner, drop triangles with a corner behind
-/// the near plane, and submit the rest as flat-shaded gsKit triangles. The classic path: the EE does the transform.
-/// The level's triangles, loaded from the host at start-up (`level.rs`).
+/// The level's tfrags, loaded from the host at start-up (`level.rs`), and the camera that views them.
 #[derive(Resource)]
-pub struct LevelData(pub level::Level);
+pub struct LevelData {
+    pub level: crate::shared::level::Level,
+    pub camera: crate::shared::level::Camera,
+}
 
+/// Steers the camera from the controller state decoded by `rc_game::pad` (the game's own pad record).
+#[derive(Resource)]
+pub struct PadData {
+    pub state: rc_game::pad::PadState,
+    pub frame: u32,
+}
+
+/// The stick the scripted pad reports until a real controller driver exists: a slow left sweep, so the yaw input is
+/// visibly changing the view.
+fn scripted_pad_bytes(frame: u32) -> [u8; 18] {
+    let phase = (frame % 240) as f32 / 240.0 * core::f32::consts::TAU;
+    rc_game::pad::PadInput::neutral().stick(libm::sinf(phase) * 0.5, 0.0).bytes()
+}
+
+fn pad_system(mut pad: ResMut<PadData>, mut level_data: ResMut<LevelData>) {
+    let frame = pad.frame;
+    pad.frame = frame.wrapping_add(1);
+    let bytes = scripted_pad_bytes(frame);
+    pad.state.update(Some(&bytes), false);
+    let turn = pad.state.lx.to_f32();
+    level_data.camera = level_data.camera.yawed(turn * 0.02);
+}
+
+/// Draws the level tfrag by tfrag, as the game does (`shared::tfrag_lod`): each tfrag's sphere decides whether it is
+/// culled and which detail list is drawn, then that list is projected and submitted as flat-shaded gsKit triangles.
 fn draw_meshes_system(gs: Res<GsContext>, level_data: Res<LevelData>) {
-    let level = &level_data.0;
     let gs = gs.0;
     // `gsKit_hires_init_global` hands back a `malloc` block that is only 16-byte aligned, and `GSGLOBAL` is declared
-    // 64-byte aligned, so a typed reference would fail Rust's alignment check. Read the two fields through raw
-    // pointers instead.
-    let (width, height) = unsafe {
+    // 64-byte aligned, so a typed reference would fail Rust's alignment check. Read the fields through raw pointers.
+    let (width, height, offset_x, offset_y) = unsafe {
         (
             core::ptr::addr_of!((*gs).Width).read_unaligned() as f32,
             core::ptr::addr_of!((*gs).Height).read_unaligned() as f32,
-        )
-    };
-    let camera = level::START;
-    let frustum = camera.frustum();
-    let (offset_x, offset_y) = unsafe {
-        (
             core::ptr::addr_of!((*gs).OffsetX).read_unaligned(),
             core::ptr::addr_of!((*gs).OffsetY).read_unaligned(),
         )
     };
-    let mut submitted = 0usize;
-    let mut culled = 0usize;
-    // One list for the whole frame: `gsKit_prim_list_triangle_gouraud_3d` takes `{rgbaq, xyz2}` vertex pairs, three per
-    // triangle, and sends them in a single GIF packet (the same packing the working sprite test uses).
-    let zero = GSPRIMPOINT { rgbaq: gskit::gs_rgbaq { rgbaq: 0 }, xyz2: gskit::gs_xyz2 { xyz2: 0 } };
-    let mut vertices = alloc::vec![zero; level.triangle_count() * 3];
-    let mut triangles = 0usize;
-    let (mut min_x, mut max_x, mut min_y, mut max_y) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+    let camera = level_data.camera;
+    let view = camera.view();
+    let thresholds = level_data.level.thresholds();
 
-    for index in 0..level.triangle_count() {
-        let Some(tri) = level.triangle(index) else {
-            break;
+    let zero = GSPRIMPOINT { rgbaq: gskit::gs_rgbaq { rgbaq: 0 }, xyz2: gskit::gs_xyz2 { xyz2: 0 } };
+    let mut vertices = alloc::vec![zero; level_data.level.triangles * 3];
+    let mut triangles = 0usize;
+    let (mut culled, mut lod_counts) = (0usize, [0usize; 3]);
+
+    for tfrag in &level_data.level.tfrags {
+        let [cx, cy, cz, r] = tfrag.sphere;
+        let sphere = crate::shared::tfrag_lod::Sphere { centre: [cx, cy, cz], radius: r };
+        let mode = view.tfrag_mode(sphere, tfrag.base_only, thresholds);
+        let lod = match mode {
+            crate::shared::tfrag_lod::DrawMode::Culled => {
+                culled += 1;
+                continue;
+            }
+            // The clipping path draws LOD 0 with no morph.
+            crate::shared::tfrag_lod::DrawMode::Clip => 0,
+            crate::shared::tfrag_lod::DrawMode::Lod(l) => match l {
+                crate::shared::tfrag_lod::Lod::Lod0 => 0,
+                crate::shared::tfrag_lod::Lod::Lod1 => 1,
+                crate::shared::tfrag_lod::Lod::Lod2 => 2,
+            },
         };
-        // Frustum cull: a triangle whose box lies wholly outside the view is never projected (`level::Frustum`).
-        let (min, max) = tri.bounds();
-        if !frustum.intersects_box(min, max) {
-            culled += 1;
-            continue;
-        }
-        let mut screen = [[0.0f32; 3]; 3];
-        let mut visible = true;
-        for (k, corner) in tri.corners.iter().enumerate() {
-            match camera.project(corner.0, width, height) {
-                Some(p) => screen[k] = p,
-                None => {
-                    visible = false;
-                    break;
+        lod_counts[lod] += 1;
+        for tri in &tfrag.lods[lod] {
+            let mut screen = [[0.0f32; 3]; 3];
+            let mut visible = true;
+            for (k, corner) in tri.corners.iter().enumerate() {
+                match camera.project(corner.0, width, height) {
+                    Some(p) => screen[k] = p,
+                    None => {
+                        visible = false;
+                        break;
+                    }
                 }
             }
-        }
-        if !visible {
-            continue;
-        }
-        // The GS reads vertex colour with 0x80 as full brightness (the blend doubles it), so the baked byte is scaled
-        // by two, saturating at 0xFF, rather than converted as sRGB.
-        let scale = |c: u8| (c as u32 * 2).min(255) as u64;
-        let colour = scale(tri.rgb[0]) | (scale(tri.rgb[1]) << 8) | (scale(tri.rgb[2]) << 16) | (0x80u64 << 24);
-        for (k, p) in screen.iter().enumerate() {
-            vertices[triangles * 3 + k] = vertex(colour, p[0], p[1], p[2] as u32, offset_x, offset_y);
-        }
-        triangles += 1;
-        submitted += 1;
-        for corner in screen {
-            min_x = min_x.min(corner[0]);
-            max_x = max_x.max(corner[0]);
-            min_y = min_y.min(corner[1]);
-            max_y = max_y.max(corner[1]);
+            if !visible || triangles >= vertices.len() / 3 {
+                continue;
+            }
+            // The GS reads vertex colour with 0x80 as full brightness (the blend doubles it), so the baked byte is
+            // scaled by two, saturating at 0xFF, rather than converted as sRGB.
+            let scale = |c: u8| (c as u32 * 2).min(255) as u64;
+            let colour = scale(tri.rgb[0]) | (scale(tri.rgb[1]) << 8) | (scale(tri.rgb[2]) << 16) | (0x80u64 << 24);
+            for (k, p) in screen.iter().enumerate() {
+                vertices[triangles * 3 + k] = vertex(colour, p[0], p[1], p[2] as u32, offset_x, offset_y);
+            }
+            triangles += 1;
         }
     }
     if triangles > 0 {
@@ -336,12 +359,9 @@ fn draw_meshes_system(gs: Res<GsContext>, level_data: Res<LevelData>) {
     }
     static REPORTED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
     if !REPORTED.swap(true, core::sync::atomic::Ordering::Relaxed) {
-        println!(
-            "level: submitted {submitted} of {} triangles at {width}x{height}",
-            level.triangle_count()
-        );
-        println!("level: screen extent x[{min_x}, {max_x}] y[{min_y}, {max_y}]");
-        println!("level: culled {culled} triangles outside the view");
+        let [lod0, lod1, lod2] = lod_counts;
+        println!("level: {} tfrags, {} culled, LOD0 {lod0}, LOD1 {lod1}, LOD2 {lod2}", level_data.level.tfrags.len(), culled);
+        println!("level: drew {triangles} triangles at {width}x{height}");
     }
 }
 

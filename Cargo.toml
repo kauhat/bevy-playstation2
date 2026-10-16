@@ -24,6 +24,9 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
+# The `f32` maths the freestanding EE build has no `core` method for (the same crate rc-game uses). Shared code needs it on
+# the host too, so it is declared for every target.
+libm = "0.2"
 #cstr_core = "0.2.6"
 cfg-if = "1.0"
 

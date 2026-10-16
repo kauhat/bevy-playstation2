@@ -131,8 +131,11 @@ const MESH_TRIANGLE_BUDGET: usize = 1024;
 fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
     let core_index = read_lump(root, "levels/00/core_index.bin");
     let core_data = rc_formats::wad::decompress(&read_lump(root, "levels/00/core_data.bin")).unwrap_or_default();
-    let mut tfrags = rc_formats::level::parse_level_core(&core_index, core_data.len())
-        .and_then(|core| rc_formats::tfrag::parse_level_tfrags(&core, &core_data))
+    let core = rc_formats::level::parse_level_core(&core_index, core_data.len());
+    let mut tfrags = core
+        .as_ref()
+        .ok()
+        .and_then(|core| rc_formats::tfrag::parse_level_tfrags(core, &core_data).ok())
         .unwrap_or_default();
 
     // The baked colours are the lit ones, as the reference renderer draws them: the directional light bank and the
@@ -177,6 +180,9 @@ fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
     // The whole lit level, for the EE to read from the host folder at run time (`level.rs`): the same record format, every
     // triangle in file order. Written into the extracted tree, which is gitignored; a missing tree writes nothing.
     write_full_level(root, &all, &tfrags);
+    if let Ok(core) = &core {
+        write_tfrag_level(root, core, &core_data, &tfrags);
+    }
 
     let mut blob = triangles.to_le_bytes().to_vec();
     blob.extend_from_slice(&mesh);
@@ -208,6 +214,46 @@ fn write_full_level(root: &Path, all: &[(usize, rc_formats::tfrag::TfragTriangle
         blob.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
     }
     let _ = std::fs::write(root.join(FULL_LEVEL_FILE), blob);
+}
+
+/// File of the per-tfrag level records the EE culls and LOD-selects from (`level.rs`, `shared::tfrag_lod`).
+const TFRAG_LEVEL_FILE: &str = "levels/00/level0_tfrags.bin";
+
+/// Writes the level tfrag by tfrag, as `TfragProc` sees it: the LOD base distance, the tfrag count, then each tfrag's
+/// bounding sphere (raw units, 1024 per world
+/// unit) and its base-only flag, then its three detail lists (LOD 0, 1, 2), each as a `u32` triangle count and 40-byte
+/// records in the same format as [`write_full_level`]. All little-endian. Best effort, like the other writes.
+fn write_tfrag_level(root: &Path, core: &rc_formats::level::LevelCore, core_data: &[u8], tfrags: &[rc_formats::tfrag::Tfrag]) {
+    if !root.join("levels/00").is_dir() {
+        return;
+    }
+    // The level's LOD base distance `L` (the block header's `unknown_8`): the game's switch distances are `6L, 4L, 2L`.
+    let base = rc_formats::tfrag::tfrag_block(core, core_data)
+        .and_then(rc_formats::tfrag::parse_tfrag_block_header)
+        .map(|h| h.unknown_8)
+        .unwrap_or(0.0);
+    let mut blob = base.to_le_bytes().to_vec();
+    blob.extend_from_slice(&(tfrags.len() as u32).to_le_bytes());
+    for tfrag in tfrags {
+        for v in tfrag.header.bsphere {
+            blob.extend_from_slice(&v.to_le_bytes());
+        }
+        blob.extend_from_slice(&(tfrag.header.base_only as u32).to_le_bytes());
+        for lod in [0usize, 1, 2] {
+            let tris = rc_formats::tfrag::tfrag_triangles(tfrag, lod).unwrap_or_default();
+            blob.extend_from_slice(&(tris.len() as u32).to_le_bytes());
+            for t in tris {
+                for corner in [t.a, t.b, t.c] {
+                    for c in tfrag.world_position(corner as usize) {
+                        blob.extend_from_slice(&c.to_le_bytes());
+                    }
+                }
+                let colour = tfrag.rgba.get(tfrag.position_index(t.a as usize)).copied().unwrap_or_default();
+                blob.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
+            }
+        }
+    }
+    let _ = std::fs::write(root.join(TFRAG_LEVEL_FILE), blob);
 }
 
 /// Declares a directory as worth reconfiguring on if it appears or disappears.
