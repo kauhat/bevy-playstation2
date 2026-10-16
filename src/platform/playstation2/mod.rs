@@ -19,7 +19,7 @@ use core::time::Duration;
 use linked_list_allocator::LockedHeap;
 use prussia_rt::cop0::TimerCount;
 use ps2sdk_sys::gskit;
-use ps2sdk_sys::gskit::GSGLOBAL;
+use ps2sdk_sys::gskit::{GSGLOBAL, gsPrimPoint as GSPRIMPOINT};
 
 use crate::shared::{BackgroundColor, GameCamera, GameMesh};
 
@@ -99,15 +99,12 @@ impl Plugin for Ps2PlatformPlugin {
         // Initialize gsKit hardware context
         let gs_global = unsafe {
             let gs = gskit::gsKit_hires_init_global();
+            // One buffer: with two, each frame's content landed in alternating buffers and the picture flickered.
+            core::ptr::addr_of_mut!((*gs).DoubleBuffering).write_unaligned(gskit::GS_SETTING_OFF as u8);
             gskit::gsKit_init_screen(gs);
 
             gs
         };
-
-        unsafe {
-            // Depth testing for the level's triangles.
-            gskit::gsKit_set_test(gs_global, gskit::GS_ZTEST_OFF as u8);
-        }
 
         app.insert_resource(GsContext(gs_global));
 
@@ -231,10 +228,6 @@ fn attach_ps2_mesh(mut commands: Commands, query: Query<Entity, Added<GameMesh>>
 }
 
 fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
-    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
-        println!("trace: clear_screen_system runs");
-    }
     let raw_color = Ps2Color::from(bg.0);
 
     unsafe {
@@ -242,13 +235,19 @@ fn clear_screen_system(gs: Res<GsContext>, bg: Res<BackgroundColor>) {
     }
 }
 
+/// One `{rgbaq, xyz2}` vertex of a flat-coloured triangle list. The XY are gsKit's 1/16-pixel fixed point with the
+/// context offset applied; the colour word is the RGBAQ tag-less word gsKit expects in the low half.
+fn vertex(colour: u64, x: f32, y: f32, z: u32, offset_x: i32, offset_y: i32) -> GSPRIMPOINT {
+    let ix = ((x * 16.0) as i32 + offset_x).clamp(0, 4096 * 16 - 1) as u64;
+    let iy = ((y * 16.0) as i32 + offset_y).clamp(0, 4096 * 16 - 1) as u64;
+    let rgbaq = gskit::gs_rgbaq { rgbaq: colour as u128 | (0x01u128 << 64) };
+    let xyz2 = gskit::gs_xyz2 { xyz2: (ix | (iy << 16) | ((z as u64) << 32)) as u128 | (0x05u128 << 64) };
+    GSPRIMPOINT { rgbaq, xyz2 }
+}
+
 /// Draws the level slice from the start camera (`level.rs`): project every corner, drop triangles with a corner behind
 /// the near plane, and submit the rest as flat-shaded gsKit triangles. The classic path: the EE does the transform.
 fn draw_meshes_system(gs: Res<GsContext>) {
-    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
-        println!("trace: draw_meshes_system runs");
-    }
     let gs = gs.0;
     // `gsKit_hires_init_global` hands back a `malloc` block that is only 16-byte aligned, and `GSGLOBAL` is declared
     // 64-byte aligned, so a typed reference would fail Rust's alignment check. Read the two fields through raw
@@ -260,7 +259,18 @@ fn draw_meshes_system(gs: Res<GsContext>) {
         )
     };
     let camera = level::START;
+    let (offset_x, offset_y) = unsafe {
+        (
+            core::ptr::addr_of!((*gs).OffsetX).read_unaligned(),
+            core::ptr::addr_of!((*gs).OffsetY).read_unaligned(),
+        )
+    };
     let mut submitted = 0usize;
+    // One list for the whole frame: `gsKit_prim_list_triangle_gouraud_3d` takes `{rgbaq, xyz2}` vertex pairs, three per
+    // triangle, and sends them in a single GIF packet (the same packing the working sprite test uses).
+    let zero = GSPRIMPOINT { rgbaq: gskit::gs_rgbaq { rgbaq: 0 }, xyz2: gskit::gs_xyz2 { xyz2: 0 } };
+    let mut vertices = alloc::vec![zero; level::triangle_count() * 3];
+    let mut triangles = 0usize;
     let (mut min_x, mut max_x, mut min_y, mut max_y) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
 
     for index in 0..level::triangle_count() {
@@ -281,28 +291,25 @@ fn draw_meshes_system(gs: Res<GsContext>) {
         if !visible {
             continue;
         }
-        let colour = Ps2Color::from(Color::srgb_u8(tri.rgb[0], tri.rgb[1], tri.rgb[2])).0;
-        unsafe {
-            gskit::gsKit_prim_triangle_3d(
-                gs,
-                screen[0][0],
-                screen[0][1],
-                screen[0][2] as i32,
-                screen[1][0],
-                screen[1][1],
-                screen[1][2] as i32,
-                screen[2][0],
-                screen[2][1],
-                screen[2][2] as i32,
-                colour,
-            );
+        // The GS reads vertex colour with 0x80 as full brightness (the blend doubles it), so the baked byte is scaled
+        // by two, saturating at 0xFF, rather than converted as sRGB.
+        let scale = |c: u8| (c as u32 * 2).min(255) as u64;
+        let colour = scale(tri.rgb[0]) | (scale(tri.rgb[1]) << 8) | (scale(tri.rgb[2]) << 16) | (0x80u64 << 24);
+        for (k, p) in screen.iter().enumerate() {
+            vertices[triangles * 3 + k] = vertex(colour, p[0], p[1], p[2] as u32, offset_x, offset_y);
         }
+        triangles += 1;
         submitted += 1;
         for corner in screen {
             min_x = min_x.min(corner[0]);
             max_x = max_x.max(corner[0]);
             min_y = min_y.min(corner[1]);
             max_y = max_y.max(corner[1]);
+        }
+    }
+    if triangles > 0 {
+        unsafe {
+            gskit::gsKit_prim_list_triangle_gouraud_3d(gs, (triangles * 3) as i32, vertices.as_ptr());
         }
     }
     static REPORTED: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
@@ -316,10 +323,6 @@ fn draw_meshes_system(gs: Res<GsContext>) {
 }
 
 fn flip_display_system(gs: Res<GsContext>) {
-    static ONCE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-    if !ONCE.swap(true, core::sync::atomic::Ordering::Relaxed) {
-        println!("trace: flip_display_system runs");
-    }
     unsafe {
         gskit::gsKit_queue_exec(gs.0);
         gskit::gsKit_sync_flip(gs.0);

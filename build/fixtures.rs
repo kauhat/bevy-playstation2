@@ -126,37 +126,52 @@ const MESH_TRIANGLE_BUDGET: usize = 1024;
 /// Stages a decimated slice of level 0's collision-free tfrag geometry as a binary blob the EE includes verbatim.
 ///
 /// Format (little-endian): `u32` triangle count, then per triangle nine `f32` positions (game units, three vertices)
-/// and three `u8` colour channels (RGB, the first vertex's colour) with one padding byte. The tfrags are taken nearest
-/// the origin of the level's first tfrag group, so the slice always covers the area a camera starts in.
+/// and three `u8` colour channels (RGB, the first vertex's colour) with one padding byte. The triangles are an even
+/// stride through the whole level, so the slice covers all of it at the budget's density.
 fn stage_level_mesh(root: &Path, out_dir: &Path) -> String {
     let core_index = read_lump(root, "levels/00/core_index.bin");
     let core_data = rc_formats::wad::decompress(&read_lump(root, "levels/00/core_data.bin")).unwrap_or_default();
-    let tfrags = rc_formats::level::parse_level_core(&core_index, core_data.len())
+    let mut tfrags = rc_formats::level::parse_level_core(&core_index, core_data.len())
         .and_then(|core| rc_formats::tfrag::parse_level_tfrags(&core, &core_data))
         .unwrap_or_default();
 
-    let mut mesh: Vec<u8> = Vec::new();
-    let mut triangles: u32 = 0;
-    for tfrag in tfrags.iter() {
-        if triangles as usize >= MESH_TRIANGLE_BUDGET {
-            break;
+    // The baked colours are the lit ones, as the reference renderer draws them: the directional light bank and the
+    // normal table relight every tfrag (`rc-engine`'s `light_level_tfrags`). Without the data the unlit colours stay.
+    let gameplay = rc_formats::wad::decompress(&read_lump(root, "levels/00/gameplay_ntsc.bin")).unwrap_or_default();
+    let elf = read_lump(root, "boot/SCUS_971.99");
+    if let (Ok(bank), Ok(table)) = (
+        rc_formats::tfrag_light::parse_light_bank(&gameplay),
+        rc_formats::tfrag_light::NormalTable::from_elf(&elf, rc_formats::tfrag_light::BOOT_NORMAL_TABLE_VADDR),
+    ) {
+        for tfrag in tfrags.iter_mut() {
+            tfrag.rgba = rc_formats::tfrag_light::light_tfrag(tfrag, &bank, &table, None);
         }
+    }
+
+    // Every triangle of the level, in file order, then an even stride through them so the budget covers the whole
+    // level rather than only the first tfrag chunks.
+    let mut all = Vec::new();
+    for (index, tfrag) in tfrags.iter().enumerate() {
         let Ok(tris) = rc_formats::tfrag::tfrag_triangles(tfrag, 0) else { continue };
         for t in tris {
-            if triangles as usize >= MESH_TRIANGLE_BUDGET {
-                break;
-            }
-            let corners = [t.a, t.b, t.c];
-            for corner in corners {
-                let p = tfrag.world_position(corner as usize);
-                for c in p {
-                    mesh.extend_from_slice(&c.to_le_bytes());
-                }
-            }
-            let colour = tfrag.rgba.get(tfrag.position_index(t.a as usize)).copied().unwrap_or_default();
-            mesh.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
-            triangles += 1;
+            all.push((index, t));
         }
+    }
+    let stride = all.len().div_ceil(MESH_TRIANGLE_BUDGET).max(1);
+
+    let mut mesh: Vec<u8> = Vec::new();
+    let mut triangles: u32 = 0;
+    for (index, t) in all.iter().step_by(stride).take(MESH_TRIANGLE_BUDGET) {
+        let tfrag = &tfrags[*index];
+        for corner in [t.a, t.b, t.c] {
+            let p = tfrag.world_position(corner as usize);
+            for c in p {
+                mesh.extend_from_slice(&c.to_le_bytes());
+            }
+        }
+        let colour = tfrag.rgba.get(tfrag.position_index(t.a as usize)).copied().unwrap_or_default();
+        mesh.extend_from_slice(&[colour.r, colour.g, colour.b, 0]);
+        triangles += 1;
     }
 
     let mut blob = triangles.to_le_bytes().to_vec();

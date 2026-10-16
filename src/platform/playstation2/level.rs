@@ -76,7 +76,7 @@ impl Camera {
         let sx = width * 0.5 / (TAN_X * cz);
         let sy = height * 0.5 / (TAN_Y * cz);
         let x = width * 0.5 + cx * sx;
-        let y = height * 0.5 - cy * sy;
+        let y = height * 0.5 + cy * sy;
         // Linear depth across the near..far range, scaled to the 24-bit Z buffer gsKit tests against.
         let depth = ((cz - NEAR) / (FAR - NEAR)).clamp(0.0, 1.0);
         Some([x, y, depth * 8_388_607.0])

@@ -2126,36 +2126,17 @@ mod graphics {
         }
     }
 
-    /// One flat triangle through `gsKit_prim_triangle_3d`, straight after a clear, no transform. Nothing in the
-    /// project had yet drawn a primitive, so this is the first check that the GS takes one.
+    /// A filled sprite (rectangle) straight after a clear, in a fresh context. Sprites are the primitive gsKit's own
+    /// clear is built from, so this is the one that must show on the display.
     #[test_case]
-    fn gskit_draws_one_triangle() {
+    fn gskit_draws_one_sprite() {
         unsafe {
             let context = gskit::gsKit_hires_init_global();
-            check!(
-                !context.is_null(),
-                "gsKit_hires_init_global() returned null"
-            );
+            check!(!context.is_null(), "gsKit_hires_init_global() returned null");
             gskit::gsKit_init_screen(context);
             gskit::gsKit_set_test(context, gskit::GS_ZTEST_OFF as u8);
             gskit::gsKit_clear(context, rgba(0x00, 0x00, 0x00, 0x80));
-            // `GSGLOBAL` is 64-byte aligned but `malloc` only gives 16, so read through raw pointers.
-            let w = core::ptr::addr_of!((*context).Width).read_unaligned() as f32;
-            let h = core::ptr::addr_of!((*context).Height).read_unaligned() as f32;
-            ps2sdk_sys::println!("triangle: frame {w}x{h}");
-            gskit::gsKit_prim_triangle_3d(
-                context,
-                w * 0.2,
-                h * 0.8,
-                0,
-                w * 0.8,
-                h * 0.8,
-                0,
-                w * 0.5,
-                h * 0.2,
-                0,
-                rgba(0xFF, 0xFF, 0xFF, 0x80),
-            );
+            gskit::gsKit_prim_sprite(context, 100.0, 100.0, 540.0, 348.0, 0, rgba(0xFF, 0x00, 0x00, 0x80));
             gskit::gsKit_queue_exec(context);
             gskit::gsKit_sync_flip(context);
             gskit::gsKit_deinit_global(context);
@@ -2189,6 +2170,66 @@ mod graphics {
     ///
     /// If the GS never interrupts, this hangs and the runner's timeout is what
     /// reports it.
+    /// `rgbaq_to_RGBAQ` from gsKit's `gsInline.h`: the colour word, tagged `GS_RGBAQ` in the high half.
+    fn rgbaq_word(colour: u64) -> u128 {
+        (colour as u128) | ((0x01u128) << 64)
+    }
+
+    /// `vertex_to_XYZ2` from gsKit's `gsInline.h`: x and y in 1/16 pixel with the context offset applied, `z` as given,
+    /// tagged `GS_XYZ2` in the high half. Offsets are the ones gsKit set up in `gsKit_init_screen`.
+    fn xyz2_word(x: f32, y: f32, z: u32, offset_x: i32, offset_y: i32) -> u128 {
+        let ix = ((x * 16.0) as i32 + offset_x).clamp(0, 4096 * 16 - 1) as u64;
+        let iy = ((y * 16.0) as i32 + offset_y).clamp(0, 4096 * 16 - 1) as u64;
+        let xyz = ix | (iy << 16) | ((z as u64) << 32);
+        (xyz as u128) | ((0x05u128) << 64)
+    }
+
+    /// Holds a full-screen magenta sprite on the display for about three seconds. The harness leaves whatever frame the
+    /// last drawing test flipped on screen, so this is the frame to look for: if it shows magenta, sprites reach the
+    /// display; if it shows burgundy or black, they do not. Named to sort after `gskit_paints_the_screen` and before
+    /// `vsync_wait_spends_a_frame`, which draws nothing.
+    #[test_case]
+    fn gskit_sprite_holds_the_screen() {
+        unsafe {
+            // What `gsKit_init_global()` expands to in gsKit's own headers: 1 MB one-shot, 256 KB persistent queue.
+            let context = gskit::gsKit_init_global_custom(1024 * 1024, 1024 * 256);
+            check!(!context.is_null(), "gsKit_init_global_custom() returned null");
+            core::ptr::addr_of_mut!((*context).DoubleBuffering).write_unaligned(gskit::GS_SETTING_OFF as u8);
+            gskit::gsKit_init_screen(context);
+            let w = core::ptr::addr_of!((*context).Width).read_unaligned() as f32;
+            let h = core::ptr::addr_of!((*context).Height).read_unaligned() as f32;
+            gskit::gsKit_set_test(context, gskit::GS_ZTEST_OFF as u8);
+            core::ptr::addr_of_mut!((*context).PrimAlphaEnable).write_unaligned(gskit::GS_SETTING_ON as i32);
+            // The GIF DMA channel carries every primitive to the GS; every gsKit example sets it up before drawing.
+            gskit::dmaKit_init(
+                gskit::D_CTRL_RELE_OFF,
+                gskit::D_CTRL_MFD_OFF,
+                gskit::D_CTRL_STS_UNSPEC,
+                gskit::D_CTRL_STD_OFF,
+                gskit::D_CTRL_RCYC_8,
+                1 << gskit::DMA_CHANNEL_GIF,
+            );
+            gskit::dmaKit_chan_init(gskit::DMA_CHANNEL_GIF);
+            let offset_x = core::ptr::addr_of!((*context).OffsetX).read_unaligned();
+            let offset_y = core::ptr::addr_of!((*context).OffsetY).read_unaligned();
+            // As gsKit's `basic` example: one clear, then the static content in the persistent queue, then the loop.
+            gskit::gsKit_clear(context, rgba(0x00, 0x00, 0x00, 0x80));
+            gskit::gsKit_mode_switch(context, gskit::GS_PERSISTENT as u8);
+            let list: [u128; 3] = [
+                rgbaq_word(rgba(0xFF, 0x00, 0xFF, 0x80)),
+                xyz2_word(0.0, 0.0, 0, offset_x, offset_y),
+                xyz2_word(w, h, 0, offset_x, offset_y),
+            ];
+            gskit::gsKit_prim_list_sprite_flat(context, 3, list.as_ptr());
+            gskit::gsKit_mode_switch(context, gskit::GS_ONESHOT as u8);
+            for _ in 0..180 {
+                gskit::gsKit_queue_exec(context);
+                gskit::gsKit_sync_flip(context);
+            }
+            gskit::gsKit_deinit_global(context);
+        }
+    }
+
     #[test_case]
     fn vsync_wait_spends_a_frame() {
         const TICKS_PER_SECOND: u64 = 294_912_000;
